@@ -1,15 +1,32 @@
 [package]
-name = "skills-hub-companion"
-version = "0.1.0"
-description = "Local companion for AI agent skills"
+name = "skills-launcher"
+version = "0.2.0"
+description = "Skills Launcher"
 edition = "2021"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
-tauri-plugin-shell = "2"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serde_yaml = "0.9"
+rusqlite = { version = "0.32", features = ["bundled"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip", "brotli", "deflate"] }
+tokio = { version = "1", features = ["macros", "rt", "time", "process"] }
+futures = "0.3"
+async-trait = "0.1"
+sha2 = "0.10"
+hex = "0.4"
+regex = "1"
+walkdir = "2"
+zip = "2"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+dirs = "6"
+which = "7"
+url = "2"
+thiserror = "2"
 open = "5"
