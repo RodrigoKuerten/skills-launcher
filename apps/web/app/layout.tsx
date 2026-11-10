@@ -8,8 +8,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "AI Skills Hub — the marketplace for agent skills",
-    template: "%s · AI Skills Hub",
+    default: "Skills Launcher — one library for every AI agent",
+    template: "%s · Skills Launcher",
   },
   description:
     "Discover, verify and install skills for Claude Code, Codex, OpenCode, Cursor, Copilot, Gemini CLI and more. Versioned, scanned, and kept up to date from verifiable sources.",
@@ -18,8 +18,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#070708" },
-    { media: "(prefers-color-scheme: light)", color: "#f7f7f8" },
+    { media: "(prefers-color-scheme: dark)", color: "#05070d" },
+    { media: "(prefers-color-scheme: light)", color: "#f6f8fc" },
   ],
 };
 
