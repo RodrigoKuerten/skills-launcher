@@ -1,4 +1,4 @@
-# Universal AI Skills Manager — Desktop Pivot Plan
+# Skills Launcher — Desktop Pivot Plan
 
 ## Goal
 

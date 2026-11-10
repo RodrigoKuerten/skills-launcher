@@ -19,8 +19,8 @@
     "agent": "npm run dev -w @skills-hub/agent",
     "agent:cli": "npm run cli -w @skills-hub/agent --",
     "agent:detect": "npm run detect -w @skills-hub/agent",
-    "dev:desktop": "npm run dev -w @skills-hub/desktop",
-    "build:desktop": "npm run build -w @skills-hub/desktop"
+    "dev:desktop": "npm run dev -w @skills-launcher/desktop",
+    "build:desktop": "npm run build -w @skills-launcher/desktop"
   },
   "overrides": {
     "@prisma/config": {

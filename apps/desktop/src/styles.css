@@ -1,0 +1,73 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+
+@theme {
+  --color-canvas: #05070d;
+  --color-surface: #090d16;
+  --color-panel: #0d1320;
+  --color-elevated: #121a2a;
+  --color-line: #1c2638;
+  --color-muted: #8b99ad;
+  --color-brand: #2f6bff;
+  --color-brand-strong: #2447ff;
+  --color-brand-soft: #60a5fa;
+  --color-cyan: #38bdf8;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+  --brand-500: #2f6bff;
+  --brand-400: #4d8dff;
+  --brand-300: #7fb0ff;
+  --brand-cyan: #38c6ff;
+  --brand-gradient: linear-gradient(135deg, #38c6ff 0%, #2f6bff 48%, #2447ff 100%);
+  --brand-glow: rgba(47, 107, 255, 0.22);
+  background: var(--color-canvas);
+  color: #f5f8ff;
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background:
+    radial-gradient(1100px 680px at 82% -12%, rgba(47, 107, 255, 0.13), transparent 64%),
+    radial-gradient(760px 520px at -8% 108%, rgba(56, 198, 255, 0.08), transparent 62%),
+    var(--color-canvas);
+}
+
+::selection {
+  background: rgba(47, 107, 255, 0.35);
+  color: #ffffff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand-400);
+  outline-offset: 2px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #23314a transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: #23314a;
+  background-clip: content-box;
+}
