@@ -7,11 +7,15 @@
   --color-panel: #0d1320;
   --color-elevated: #121a2a;
   --color-line: #1c2638;
+  --color-text: #f5f8ff;
   --color-muted: #8b99ad;
   --color-brand: #2f6bff;
   --color-brand-strong: #2447ff;
   --color-brand-soft: #60a5fa;
   --color-cyan: #38bdf8;
+  --color-ok: #34d399;
+  --color-warn: #fbbf24;
+  --color-danger: #fb7185;
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -24,10 +28,30 @@
   --brand-gradient: linear-gradient(135deg, #38c6ff 0%, #2f6bff 48%, #2447ff 100%);
   --brand-glow: rgba(47, 107, 255, 0.22);
   background: var(--color-canvas);
-  color: #f5f8ff;
+  color: var(--color-text);
   font-family: var(--font-sans);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --color-canvas: #f3f6fc;
+  --color-surface: #ffffff;
+  --color-panel: #f7f9fd;
+  --color-elevated: #eef3fb;
+  --color-line: #dbe3f0;
+  --color-text: #0a1020;
+  --color-muted: #5e6c82;
+  --color-brand-soft: #1d5bdb;
+  --color-ok: #047857;
+  --color-warn: #b45309;
+  --color-danger: #be123c;
+  --color-cyan: #0e7490;
+  --brand-400: #2f6bff;
+  --brand-300: #1d5bdb;
+  --brand-glow: rgba(47, 107, 255, 0.16);
 }
 
 html,
@@ -42,6 +66,14 @@ body {
   background:
     radial-gradient(1100px 680px at 82% -12%, rgba(47, 107, 255, 0.13), transparent 64%),
     radial-gradient(760px 520px at -8% 108%, rgba(56, 198, 255, 0.08), transparent 62%),
+    var(--color-canvas);
+  color: var(--color-text);
+}
+
+html[data-theme="light"] body {
+  background:
+    radial-gradient(1100px 680px at 82% -12%, rgba(47, 107, 255, 0.1), transparent 64%),
+    radial-gradient(760px 520px at -8% 108%, rgba(56, 198, 255, 0.09), transparent 62%),
     var(--color-canvas);
 }
 
@@ -60,6 +92,10 @@ body {
   scrollbar-color: #23314a transparent;
 }
 
+html[data-theme="light"] * {
+  scrollbar-color: #c4d0e2 transparent;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -70,4 +106,128 @@ body {
   border-radius: 999px;
   background: #23314a;
   background-clip: content-box;
+}
+
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #c4d0e2;
+  background-clip: content-box;
+}
+
+select option {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.brand-gradient {
+  background: var(--brand-gradient);
+}
+
+.brand-gradient-text {
+  background: linear-gradient(135deg, #7dd3fc 0%, #60a5fa 44%, #2f6bff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+html[data-theme="light"] .brand-gradient-text {
+  background: linear-gradient(135deg, #0284c7 0%, #2f6bff 56%, #2447ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(139, 153, 173, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 153, 173, 0.055) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(to bottom right, black, transparent 72%);
+}
+
+html[data-theme="light"] .hero-grid {
+  background-image:
+    linear-gradient(rgba(47, 107, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(47, 107, 255, 0.08) 1px, transparent 1px);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes soft-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 180ms ease-out both;
+}
+
+.animate-dialog-in {
+  animation: dialog-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.animate-sheet-in {
+  animation: sheet-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.animate-toast-in {
+  animation: toast-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
