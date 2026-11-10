@@ -104,20 +104,21 @@ release cadence appears.
 
 ## Acceptance checks
 
-Current Windows evidence (2026-11-09):
+Current Windows evidence (2026-11-10):
 
 - All five seeded official GitHub sources sync through the app: 105 real skills, 2 quarantined, 0 invented rows.
 - Local source sync, security quarantine, install/update with user extras, backups, rollback, ZIP traversal and path
-  validation pass in `cargo test`.
+  validation pass in `cargo test` (8 passing) and `cargo clippy -- -D warnings`.
 - Real detection on this machine reports only OpenCode (runtime evidence); config/skills folders alone stay
-  not-detected.
-- `npm run build:exe` produces a working release executable; the NSIS bundle is the remaining packaging check.
-- UI typecheck/build and Playwright screenshot audit are in progress on `feat/desktop-ui`.
+  not-detected. UI install/uninstall into OpenCode was exercised end to end.
+- `npm run build:desktop` produces the NSIS installer; it was installed, launched, uninstalled and reinstalled.
+- React typecheck/build, site typecheck/build, Playwright WebView2 audit at 1320×860 / 980×640, dark and light themes,
+  and `npm audit` (0 vulnerabilities) pass. Playwright console errors: 0.
+- Source deletion is soft, backups are integrity-checked before restore, and imported code is never executed.
 
 Remaining acceptance checks:
 
-- `cargo test` and `npm run build:desktop` pass from a clean checkout.
-- Source import/export round-trips through the UI.
-- UI build and visual audit at 1320x860 (desktop) and narrow width; no console errors; real IPC states.
-- Windows installer built, installed, launched and uninstalled; Linux/macOS documented as unverified without runners.
+- UI import/export round-trip against a second install (backend parsing is tested, UI flow is not automated).
+- Linux/macOS runtime and agent-host validation on real runners.
+- Project-scope installs and code signing are future work.
 - No remote URL, source content or skill file is rendered as raw HTML.
