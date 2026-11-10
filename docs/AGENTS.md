@@ -46,8 +46,8 @@ updates are always available in Updates.
 
 ## Limits
 
-- Windows is the validated runtime. Linux/macOS host descriptors and path validation exist but have not run on real
-  runners yet; do not claim them verified.
+- Windows is the fully validated runtime. Linux/macOS build and process launch are validated in CI, but their host
+  descriptors and real agent installs have not been exercised on those operating systems; do not claim them verified.
 - Project-scope installs are not in this slice; only user-level roots are written.
 - No skill script, hook or install command is executed.
 - Detection can miss agents that are running from an unregistered/portable binary or a desktop app with no PATH/known

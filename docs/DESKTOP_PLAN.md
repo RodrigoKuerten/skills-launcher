@@ -119,6 +119,7 @@ Current Windows evidence (2026-11-10):
 Remaining acceptance checks:
 
 - UI import/export round-trip against a second install (backend parsing is tested, UI flow is not automated).
-- Linux/macOS runtime and agent-host validation on real runners.
+- Linux/macOS GUI behavior and real agent-host detection/install on those systems. CI now validates compile, Rust tests,
+  frontend build and a 10-second process launch on both; it cannot validate real agent binaries there.
 - Project-scope installs and code signing are future work.
 - No remote URL, source content or skill file is rendered as raw HTML.

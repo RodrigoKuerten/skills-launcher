@@ -26,7 +26,8 @@ Skills Launcher treats every source, archive, and skill as untrusted data. Impor
 
 ## Residual risks / limits
 
-- Windows/WebView2 is the only validated runtime. Linux/macOS paths and descriptors exist but have not run on real CI.
+- Windows/WebView2 is the only fully interactive runtime validated. Linux and macOS compile, pass shared Rust tests and
+  launch the Tauri process in CI (`docs/CI.md`), but GUI behavior and real agent-host installation there are not verified.
 - DNS rebinding between host validation and connect is not fully prevented; use connect-time pinning if remote catalogs
   become a shared service. Git itself follows its own transport rules (redirects disabled above).
 - Checksums prove integrity, not author authenticity. Source trust is a user-visible signal, not a signature.
