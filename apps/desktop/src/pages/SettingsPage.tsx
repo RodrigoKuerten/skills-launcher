@@ -24,16 +24,6 @@ import { errorMessage, formatInterval, parsePositiveInt } from "../lib/format";
 import { ipc } from "../lib/ipc";
 import type { Settings, Theme } from "../lib/types";
 
-function isValidOptionalUrl(value: string): boolean {
-  if (!value.trim()) return true;
-  try {
-    const url = new URL(value.trim());
-    return url.protocol === "https:" || url.protocol === "http:";
-  } catch {
-    return false;
-  }
-}
-
 export default function SettingsPage() {
   const { bootstrap, refresh } = useAppData();
   const toast = useToast();
@@ -41,7 +31,6 @@ export default function SettingsPage() {
   const [theme, setTheme] = useState<Theme>(settings?.theme === "light" ? "light" : "dark");
   const [autoSync, setAutoSync] = useState(settings?.autoSync ?? false);
   const [intervalText, setIntervalText] = useState(String(settings?.autoSyncIntervalMinutes ?? 360));
-  const [remoteUrl, setRemoteUrl] = useState(settings?.remoteCatalogUrl ?? "");
   const [token, setToken] = useState("");
   const [tokenSet, setTokenSet] = useState(settings?.githubTokenSet ?? false);
   const [saving, setSaving] = useState(false);
@@ -50,7 +39,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setError(null);
-  }, [theme, autoSync, intervalText, remoteUrl, token]);
+  }, [theme, autoSync, intervalText, token]);
 
   if (!bootstrap || !settings) return null;
 
@@ -61,7 +50,6 @@ export default function SettingsPage() {
     setTheme(nextTheme);
     setAutoSync(next.autoSync);
     setIntervalText(String(next.autoSyncIntervalMinutes));
-    setRemoteUrl(next.remoteCatalogUrl);
     setTokenSet(next.githubTokenSet);
     setToken("");
   };
@@ -74,10 +62,6 @@ export default function SettingsPage() {
       setError("Auto-sync interval must be between 30 and 10080 minutes.");
       return;
     }
-    if (!isValidOptionalUrl(remoteUrl)) {
-      setError("Remote catalog URL must be a valid HTTP or HTTPS URL.");
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
@@ -85,7 +69,6 @@ export default function SettingsPage() {
         theme,
         autoSync,
         autoSyncIntervalMinutes: interval,
-        remoteCatalogUrl: remoteUrl.trim(),
         ...(token.trim() ? { githubToken: token.trim() } : {}),
       });
       applySettings(next);
@@ -204,7 +187,7 @@ export default function SettingsPage() {
               <Field
                 label="Auto-sync interval"
                 htmlFor="settings-interval"
-                hint={`${formatInterval(parsePositiveInt(intervalText, 360))} · 30 to 10080 minutes`}
+                hint={`Default for new sources · ${formatInterval(parsePositiveInt(intervalText, 360))} · 30 to 10080 minutes`}
                 className="max-w-xs"
               >
                 <Input
@@ -214,22 +197,6 @@ export default function SettingsPage() {
                   max={10080}
                   value={intervalText}
                   onChange={(event) => setIntervalText(event.target.value)}
-                />
-              </Field>
-            </div>
-            <div className="border-t border-line/60 pt-4">
-              <Field
-                label="Remote catalog URL"
-                htmlFor="settings-remote"
-                hint="Optional HTTP or HTTPS endpoint kept with the local settings."
-                optional
-              >
-                <Input
-                  id="settings-remote"
-                  value={remoteUrl}
-                  onChange={(event) => setRemoteUrl(event.target.value)}
-                  placeholder="https://example.com/catalog.json"
-                  spellCheck={false}
                 />
               </Field>
             </div>

@@ -118,6 +118,8 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
   const open = skillId !== null;
   const categoryNames = new Map((bootstrap?.categories ?? []).map((item) => [item.slug, item.name]));
   const latest = detail?.latestVersion ?? null;
+  const activeInstallations =
+    detail?.installations.filter((installation) => installation.status !== "REMOVED") ?? [];
   const quarantined =
     detail?.status === "QUARANTINED" || latest?.status === "QUARANTINED";
   const risky = detail?.riskLevel === "HIGH" || detail?.riskLevel === "CRITICAL";
@@ -244,8 +246,8 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
                 </Badge>
               ) : null}
             </div>
-            <p className="mt-3 whitespace-pre-wrap text-[12px] leading-relaxed text-muted">
-              {detail.description || detail.summary || "No description was provided for this skill."}
+            <p className="mt-3 text-[12px] leading-relaxed text-muted">
+              {detail.summary || "No description was provided for this skill."}
             </p>
           </section>
 
@@ -341,7 +343,7 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
                           {agent.version ? (
                             <span className="font-mono text-[9px] font-normal text-muted">{agent.version}</span>
                           ) : null}
-                          {agent.autoInstall ? <Badge tone="brand">Auto-install</Badge> : null}
+                          {agent.autoInstall ? <Badge tone="brand">Auto-update</Badge> : null}
                         </span>
                         {agent.skillsPath ? (
                           <span className="mt-0.5 block truncate font-mono text-[9px] text-muted/60" title={agent.skillsPath}>
@@ -537,7 +539,7 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
             )}
           </section>
 
-          {detail.installations.length > 0 ? (
+          {activeInstallations.length > 0 ? (
             <section>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <h3 className="text-xs font-semibold text-text">Local installations</h3>
@@ -546,7 +548,7 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
                 </Button>
               </div>
               <div className="divide-y divide-line/60 rounded-xl border border-line bg-surface/40">
-                {detail.installations.map((installation) => (
+                {activeInstallations.map((installation) => (
                   <div key={installation.id} className="flex items-start gap-3 px-3 py-2.5">
                     <Check className="mt-0.5 size-3.5 shrink-0 text-ok" aria-hidden="true" />
                     <div className="min-w-0 flex-1">

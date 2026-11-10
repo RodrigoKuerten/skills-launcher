@@ -187,8 +187,10 @@ export interface Backup {
   skillId: string | null;
   host: string | null;
   path: string;
+  versionId: string | null;
   versionLabel: string | null;
   contentHash: string | null;
+  reason: string;
   createdAt: string;
 }
 
@@ -224,7 +226,6 @@ export interface Settings {
   autoSync: boolean;
   autoSyncIntervalMinutes: number;
   githubTokenSet: boolean;
-  remoteCatalogUrl: string;
 }
 
 export interface SettingsInput {
@@ -232,7 +233,6 @@ export interface SettingsInput {
   autoSync?: boolean;
   autoSyncIntervalMinutes?: number;
   githubToken?: string;
-  remoteCatalogUrl?: string;
 }
 
 export interface Stats {

@@ -142,8 +142,11 @@ export default function LibraryPage() {
           ? `${uninstallTarget.skillName} and its files were removed.`
           : `${uninstallTarget.skillName} was unlinked; files were left in place.`,
       );
+      setUninstallTarget(null);
       await load();
       await refresh();
+    } catch (reason) {
+      toast.error("Uninstall failed", errorMessage(reason));
     } finally {
       setBusy(null);
     }
@@ -158,8 +161,11 @@ export default function LibraryPage() {
       const failure = failureMessage(response);
       if (failure) toast.error("Rollback did not complete", failure);
       else toast.success("Rollback restored", `${installation.skillName} was restored on ${hostName(installation.host)}.`);
+      setRollbackConfirm(null);
       await load();
       await refresh();
+    } catch (reason) {
+      toast.error("Rollback failed", errorMessage(reason));
     } finally {
       setBusy(null);
     }
@@ -167,7 +173,7 @@ export default function LibraryPage() {
 
   if (!bootstrap) return null;
 
-  const all = installations ?? [];
+  const all = (installations ?? []).filter((installation) => installation.status !== "REMOVED");
   const hosts = Array.from(new Set(all.map((installation) => installation.host))).sort();
   const statuses = Array.from(new Set(all.map((installation) => installation.status))).sort();
   const filtered = all.filter((installation) => {

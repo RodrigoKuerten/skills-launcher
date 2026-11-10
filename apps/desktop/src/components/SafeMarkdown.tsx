@@ -35,8 +35,28 @@ function isBlockStart(line: string): boolean {
     /^\s*\d+[.)]\s+/.test(line) ||
     /^\s*>\s?/.test(line) ||
     /^```/.test(line) ||
+    /^\s*\|.*\|\s*$/.test(line) ||
     /^\s*(---+|\*\*\*+|___+)\s*$/.test(line)
   );
+}
+
+function stripFrontmatter(source: string): string {
+  if (!source.startsWith("---")) return source;
+  const match = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(source);
+  return match ? source.slice(match[0].length) : source;
+}
+
+function tableCells(line: string): string[] {
+  return line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function isTableSeparator(line: string): boolean {
+  return /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/.test(line);
 }
 
 /**
@@ -45,7 +65,7 @@ function isBlockStart(line: string): boolean {
  */
 export function SafeMarkdown({ source, className, maxChars = 160_000 }: SafeMarkdownProps) {
   const truncated = source.length > maxChars;
-  const text = truncated ? source.slice(0, maxChars) : source;
+  const text = truncated ? stripFrontmatter(source).slice(0, maxChars) : stripFrontmatter(source);
 
   const blocks = useMemo(() => {
     const lines = text.replace(/\r\n?/g, "\n").split("\n");
@@ -58,6 +78,43 @@ export function SafeMarkdown({ source, className, maxChars = 160_000 }: SafeMark
 
       if (line.trim() === "") {
         index += 1;
+        continue;
+      }
+
+      if (line.trim().startsWith("|") && isTableSeparator(lines[index + 1] ?? "")) {
+        const headers = tableCells(line);
+        const rows: string[][] = [];
+        index += 2;
+        while (index < lines.length && (lines[index] ?? "").trim().startsWith("|")) {
+          rows.push(tableCells(lines[index] ?? ""));
+          index += 1;
+        }
+        output.push(
+          <div key={key++} className="overflow-x-auto rounded-lg border border-line">
+            <table className="w-full border-collapse text-left text-[10.5px]">
+              <thead className="bg-elevated/55 text-muted">
+                <tr>
+                  {headers.map((header, column) => (
+                    <th key={column} className="border-b border-line px-2.5 py-2 font-medium">
+                      {inline(header)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, rowIndex) => (
+                  <tr key={rowIndex} className="border-b border-line/60 last:border-b-0">
+                    {headers.map((_, column) => (
+                      <td key={column} className="px-2.5 py-2 align-top text-muted">
+                        {inline(row[column] ?? "")}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>,
+        );
         continue;
       }
 

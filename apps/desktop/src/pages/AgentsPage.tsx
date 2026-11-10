@@ -55,11 +55,11 @@ export default function AgentsPage() {
       const result = await ipc.setAgentAutoInstall(agent.host, enabled);
       setAgents(result);
       toast.success(
-        enabled ? "Auto-install enabled" : "Auto-install disabled",
-        `${agent.name || hostName(agent.host)} will ${enabled ? "now" : "no longer"} receive new installs automatically.`,
+        enabled ? "Auto-update enabled" : "Auto-update disabled",
+        `${agent.name || hostName(agent.host)} will ${enabled ? "now" : "no longer"} auto-update installed skills after a sync.`,
       );
     } catch (reason) {
-      toast.error("Could not update auto-install", errorMessage(reason));
+      toast.error("Could not update auto-update", errorMessage(reason));
     } finally {
       setTogglingHost(null);
     }
@@ -242,18 +242,18 @@ export default function AgentsPage() {
                     <Cpu className="size-3 text-muted/60" aria-hidden="true" />
                     {agent.detected
                       ? agent.autoInstall
-                        ? "Auto-install is on"
-                        : "Manual installs"
+                        ? "Auto-update is on"
+                        : "Manual updates"
                       : "Unavailable"}
                   </div>
                   {agent.detected && agent.supportsAgentSkills ? (
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted">Auto-install</span>
+                      <span className="text-[10px] text-muted">Auto-update</span>
                       <Switch
                         checked={agent.autoInstall}
                         onCheckedChange={(checked) => void setAutoInstall(agent, checked)}
                         disabled={togglingHost !== null}
-                        label={`Toggle auto-install for ${agent.name || hostName(agent.host)}`}
+                        label={`Toggle auto-update for ${agent.name || hostName(agent.host)}`}
                       />
                     </div>
                   ) : (
@@ -270,8 +270,8 @@ export default function AgentsPage() {
 
       <div className="rounded-[13px] border border-line bg-surface/30 px-4 py-3">
         <p className="text-[10px] leading-relaxed text-muted/60">
-          Auto-install applies when a new version is explicitly installed from this app; nothing is
-          downloaded or executed in the background. Undetected hosts receive no writes.
+          Auto-update applies after a successful source sync. It updates existing installations for
+          this host only; undetected hosts receive no writes and no skill content is executed.
         </p>
       </div>
     </div>

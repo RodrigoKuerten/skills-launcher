@@ -40,10 +40,10 @@ function validateRemoteUrl(kind: SourceKind, value: string): string | null {
         return "Use an https://github.com/ URL.";
       }
       const segments = url.pathname.split("/").filter(Boolean);
-      if (kind === "github_repo" && segments.length < 2) {
+      if (kind === "github_repo" && segments.length !== 2) {
         return "Use https://github.com/owner/repo.";
       }
-      if (kind === "github_org" && segments.length < 1) {
+      if (kind === "github_org" && segments.length !== 1) {
         return "Use https://github.com/owner.";
       }
     } catch {
@@ -53,23 +53,15 @@ function validateRemoteUrl(kind: SourceKind, value: string): string | null {
   if (kind === "http_json") {
     try {
       const url = new URL(value.trim());
-      if (url.protocol !== "https:" && url.protocol !== "http:") {
-        return "Use an HTTP or HTTPS catalog URL.";
+      if (url.protocol !== "https:") {
+        return "Use an HTTPS catalog URL.";
       }
     } catch {
       return "Enter a valid catalog URL.";
     }
   }
-  if (kind === "git_repo") {
-    const trimmed = value.trim();
-    if (
-      !trimmed.startsWith("https://") &&
-      !trimmed.startsWith("http://") &&
-      !trimmed.startsWith("ssh://") &&
-      !trimmed.startsWith("git@")
-    ) {
-      return "Use an HTTPS, SSH or git@ repository URL.";
-    }
+  if (kind === "git_repo" && !value.trim().startsWith("https://")) {
+    return "Use an HTTPS repository URL.";
   }
   return null;
 }

@@ -20,7 +20,7 @@ page.on("console", (message) => {
 page.on("pageerror", (error) => consoleErrors.push(error.message));
 
 const routes = [
-  ["Home", "home"],
+  ["Overview", "home"],
   ["Explore", "explore"],
   ["Categories", "categories"],
   ["Library", "library"],
@@ -31,31 +31,100 @@ const routes = [
   ["Settings", "settings"],
 ];
 
+async function shot(name) {
+  await page.screenshot({ path: path.join(outDir, `${name}.png`) });
+}
+
+async function clickNav(label) {
+  await page.getByText(label, { exact: true }).first().click({ timeout: 3000 });
+  await page.waitForTimeout(350);
+}
+
 const results = [];
-await page.waitForTimeout(800);
+await page.waitForTimeout(600);
 for (const [label, slug] of routes) {
   try {
-    const target = page.getByText(label, { exact: true }).first();
-    await target.click({ timeout: 2500 });
-    await page.waitForTimeout(500);
+    await clickNav(label);
   } catch {
-    // The initial route may already be active or the label may be hidden.
+    results.push({ route: slug, navigation: "label not found" });
+    continue;
   }
   const heading = await page
     .locator("h1, h2")
     .first()
     .textContent()
     .catch(() => null);
-  const body = await page.locator("body").innerText();
-  results.push({
-    route: slug,
-    heading: heading?.trim() ?? null,
-    empty: /no |empty|nothing|sync|add |install /i.test(body),
-    consoleErrors: consoleErrors.length,
-  });
-  await page.screenshot({ path: path.join(outDir, `${slug}-1320x860.png`) });
+  results.push({ route: slug, heading: heading?.trim() ?? null });
+  await shot(slug);
 }
 
-await page.screenshot({ path: path.join(outDir, "home-final-1320x860.png") });
+// Explore: query, result list, and skill detail sheet.
+await clickNav("Explore");
+const search = page.locator("#explore-search");
+if (await search.count()) {
+  await search.fill("review");
+  await page.waitForTimeout(650);
+  await shot("explore-search");
+}
+const firstSkill = page.locator("article").first();
+if (await firstSkill.count()) {
+  await firstSkill.click();
+  await page.waitForTimeout(500);
+  await shot("skill-detail");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(250);
+}
+
+// Source form.
+await clickNav("Sources");
+const addSource = page.getByRole("button", { name: "Add source" }).first();
+if (await addSource.count()) {
+  await addSource.click();
+  await page.waitForTimeout(350);
+  await shot("source-form");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(250);
+}
+
+// Light theme is a persisted setting; switch, save, capture Home.
+await clickNav("Settings");
+const light = page.getByRole("radio", { name: /Light/ }).first();
+if (await light.count()) {
+  await light.click();
+  const save = page.getByRole("button", { name: "Save changes" }).first();
+  if (await save.count()) {
+    await save.click();
+    await page.waitForTimeout(850);
+    await clickNav("Overview");
+    await shot("home-light");
+    await clickNav("Settings");
+    const dark = page.getByRole("radio", { name: /Dark/ }).first();
+    if (await dark.count()) {
+      await dark.click();
+      const saveAgain = page.getByRole("button", { name: "Save changes" }).first();
+      if (await saveAgain.count()) {
+        await saveAgain.click();
+        await page.waitForTimeout(700);
+      }
+    }
+  }
+}
+
+// Narrow viewport via CDP emulation (980×640 minimum window).
+const cdpSession = await context.newCDPSession(page);
+await cdpSession.send("Emulation.setDeviceMetricsOverride", {
+  width: 980,
+  height: 640,
+  deviceScaleFactor: 1,
+  mobile: false,
+});
+await page.evaluate(() => {
+  window.location.hash = "#/home";
+});
+await page.waitForTimeout(300);
+await shot("home-980x640");
+await cdpSession.send("Emulation.clearDeviceMetricsOverride");
+await page.waitForTimeout(300);
+
 console.log(JSON.stringify({ results, consoleErrors }, null, 2));
 await browser.close();

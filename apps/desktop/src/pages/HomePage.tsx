@@ -190,9 +190,9 @@ export default function HomePage() {
           />
           <Stat
             icon={ShieldAlert}
-            label="Blocked"
+            label="At risk"
             value={stats.blockedSkills}
-            hint="Quarantined or high risk"
+            hint="High risk or quarantined"
             tone={stats.blockedSkills > 0 ? "danger" : "muted"}
           />
         </div>

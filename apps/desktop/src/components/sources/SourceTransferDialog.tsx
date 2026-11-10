@@ -208,8 +208,8 @@ export function SourceTransferDialog({ onClose, onImported }: SourceTransferDial
             </p>
           ) : null}
           <p className="text-[10px] leading-relaxed text-muted/60">
-            Local folder and ZIP sources must be re-selected with the native picker after import because
-            filesystem grants are session-scoped.
+            Local folder and ZIP paths cannot be imported from JSON because filesystem grants are
+            session-scoped. Remove those entries and add them with the native picker instead.
           </p>
         </div>
       )}
