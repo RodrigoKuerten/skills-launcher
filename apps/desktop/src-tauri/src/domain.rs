@@ -405,6 +405,7 @@ pub struct DiscoveredSkill {
     pub homepage_url: Option<String>,
     pub category: Option<String>,
     pub commit_ref: Option<String>,
+    pub version_label: Option<String>,
     pub source_url: String,
     pub files: Vec<SkillFile>,
     pub readme: String,

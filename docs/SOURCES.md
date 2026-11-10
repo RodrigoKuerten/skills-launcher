@@ -1,0 +1,69 @@
+# Sources
+
+Sources are untrusted catalogs. Adapters fetch bytes only; validation, scanning, hashing and persistence happen in the service layer. No imported script is ever executed.
+
+## Adapter registry
+
+| Kind | Config / URL | Notes |
+|---|---|---|
+| `github_repo` | `url=https://github.com/owner/repo`, config `{repo, branch?, path?}` | Downloads the public codeload ZIP. API metadata is optional; sync works when the unauthenticated API is rate limited. Branch defaults from GitHub metadata, then `main`/`master`. |
+| `github_org` | `url=https://github.com/org`, config `{limit?, branch?, path?}` | Lists public repos through the GitHub API (token recommended), scans up to 25. |
+| `local_dir` | `url` = picked absolute directory | Read-only, no symlinks, ignores `.git`, `node_modules`, `target`, `dist`, `.next`, `vendor`. |
+| `zip` | `url` = picked absolute `.zip` | Parsed in memory; no extraction to host directories. Rejects traversal, symlinks, encryption and archive bombs. |
+| `git_repo` | `url=https://...`, config `{branch?, path?}` | Uses system `git clone --depth 1` into an isolated temp directory; no shell, no hooks. |
+| `http_json` | `url=https://...` | Versioned catalog contract below; no HTML scraping. |
+
+## GitHub behavior
+
+- Public repositories use `https://codeload.github.com/...` directly. This keeps sync usable when the GitHub API allows only 60 requests/hour.
+- Optional token is held in memory for the current app session only; it is never written to SQLite.
+- Archive cap: 64 MB compressed/uncompressed budget, 2,000 entries, 300 text files per skill, 512 KB per file, 16 MB per skill.
+- GitHub organization sync requires API access and may fail on rate limits; the error is explicit.
+
+## HTTP JSON contract
+
+```json
+{
+  "version": 1,
+  "skills": [
+    {
+      "name": "Example Skill",
+      "description": "What it does",
+      "version": "1.0.0",
+      "license": "MIT",
+      "repository_url": "https://github.com/owner/repo",
+      "homepage_url": "https://example.com",
+      "author": "owner",
+      "stars": 0,
+      "category": "productivity",
+      "files": [
+        { "path": "SKILL.md", "content": "---\nname: Example Skill\n---\n..." }
+      ]
+    }
+  ]
+}
+```
+
+The top level may also be an array of skill objects. `SKILL.md` is required in every skill. All file paths are POSIX-relative, cannot contain `..`, backslashes, reserved Windows names or trailing dots/spaces. Catalog responses are capped at 20 MB and 100 skills.
+
+## Sync result
+
+Each sync writes a `source_runs` row and updates source status. Skills are deduplicated by `(source_id, source_path)`; versions by `(skill_id, content_hash)`. A changed hash creates a new immutable version and moves `latest_version_id`. A removed skill is not deleted automatically — installed provenance remains.
+
+## Scanner
+
+The scanner checks prompt-injection language, exfiltration/destructive commands, secret requests, remote execution, safety bypass language, hidden Unicode, non-HTTPS/raw-IP/shortener links, and script file types. `HIGH`/`CRITICAL` findings quarantine the version and block install. Findings and `scanner_version` are stored per version.
+
+## Security limits
+
+- No symlinks, reparse points, encrypted ZIPs, path traversal, absolute paths, case collisions or reserved Windows names.
+- No adapter fetch of URLs discovered inside skill content.
+- No execution of imported code, scripts, hooks or install commands.
+- Local and ZIP sources require a native picker grant; raw webview paths are rejected.
+- Tokens never enter logs, errors or the database.
+
+## Known limits
+
+- Source config editing is limited to the fields exposed in the UI; GitHub branch/subpath editing uses the source form.
+- Auto-sync scheduler and background job queue are not part of this slice.
+- Windows runtime is validated first. Linux and macOS adapters are code-complete but not yet exercised on real runners.

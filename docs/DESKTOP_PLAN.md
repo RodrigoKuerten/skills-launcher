@@ -2,8 +2,21 @@
 
 ## Goal
 
-A desktop-first Universal AI Skills Manager: discover, import, inspect, install, update and roll back Agent Skills from
-extensible sources, detect installed AI agents on Windows/Linux/macOS, and keep provenance and safety signals.
+Skills Launcher is a desktop-first universal AI skills manager: discover, import, inspect, install, update and roll back
+Agent Skills from extensible sources, detect installed AI agents on Windows/Linux/macOS, and keep provenance and safety
+signals.
+
+## Visual identity
+
+The app icon and site mark are the blue ribbon “S” on a near-black rounded square (`src-tauri/icon-source.png`,
+`public/logo.png`). The interface is dark-first and uses only the mark’s palette:
+
+- canvas `#05070d`, surfaces `#090d16` / `#0d1320`, elevated `#121a2a`, lines `#1c2638`
+- brand `#2f6bff`, strong `#2447ff`, soft `#60a5fa`, cyan `#38bdf8`
+- signature gradient: `linear-gradient(135deg, #38c6ff 0%, #2f6bff 48%, #2447ff 100%)`
+- text `#f5f8ff`, muted `#8b99ad`
+
+Do not introduce violet/purple as a primary accent. Blue is the accent; neutral zinc/blue-black carries structure.
 
 ## Stack (fixed)
 

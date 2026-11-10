@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS sources (
   last_status TEXT,
   last_error TEXT,
   skill_count INTEGER NOT NULL DEFAULT 0,
+  deleted_at TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -164,6 +165,17 @@ const CATEGORIES: &[(&str, &str, &str, &str, i64)] = &[
     ("productivity", "Productivity", "Planning, documentation and workflow discipline.", "ListChecks", 12),
 ];
 
+fn column_exists(conn: &Connection, table: &str, column: &str) -> AppResult<bool> {
+    let mut statement = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+    let columns = statement.query_map([], |row| row.get::<_, String>(1))?;
+    for name in columns {
+        if name? == column {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 impl Db {
     pub fn open(data_dir: &Path) -> AppResult<Self> {
         std::fs::create_dir_all(data_dir)?;
@@ -172,6 +184,9 @@ impl Db {
         conn.pragma_update(None, "foreign_keys", "ON")?;
         conn.pragma_update(None, "busy_timeout", 5000)?;
         conn.execute_batch(SCHEMA)?;
+        if !column_exists(&conn, "sources", "deleted_at")? {
+            conn.execute("ALTER TABLE sources ADD COLUMN deleted_at TEXT", [])?;
+        }
         let db = Self {
             conn: Mutex::new(conn),
         };
@@ -275,16 +290,12 @@ impl Db {
             .get_setting("auto_sync_interval_minutes")?
             .and_then(|value| value.parse().ok())
             .unwrap_or(360);
-        let github_token_set = self
-            .get_setting("github_token")?
-            .map(|token| !token.trim().is_empty())
-            .unwrap_or(false);
         let remote_catalog_url = self.get_setting("remote_catalog_url")?.unwrap_or_default();
         Ok(Settings {
             theme,
             auto_sync,
             auto_sync_interval_minutes: interval,
-            github_token_set,
+            github_token_set: false,
             remote_catalog_url,
         })
     }
@@ -305,9 +316,6 @@ impl Db {
             }
             self.set_setting("auto_sync_interval_minutes", &interval.to_string())?;
         }
-        if let Some(token) = &input.github_token {
-            self.set_setting("github_token", token.trim())?;
-        }
         if let Some(url) = &input.remote_catalog_url {
             if !url.trim().is_empty() {
                 let parsed = url::Url::parse(url)?;
@@ -323,7 +331,7 @@ impl Db {
     pub fn list_sources(&self) -> AppResult<Vec<Source>> {
         self.with_conn(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id,name,kind,url,author,description,config,trust,license,enabled,auto_sync,interval_minutes,last_sync_at,last_status,last_error,skill_count,created_at,updated_at FROM sources ORDER BY name COLLATE NOCASE",
+                "SELECT id,name,kind,url,author,description,config,trust,license,enabled,auto_sync,interval_minutes,last_sync_at,last_status,last_error,skill_count,created_at,updated_at FROM sources WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE",
             )?;
             let rows = stmt.query_map([], |row| {
                 Ok((
@@ -400,8 +408,8 @@ impl Db {
 
     pub fn stats(&self) -> AppResult<Stats> {
         self.with_conn(|conn| {
-            let sources = conn.query_row("SELECT COUNT(*) FROM sources", [], |row| row.get(0))?;
-            let enabled_sources = conn.query_row("SELECT COUNT(*) FROM sources WHERE enabled=1", [], |row| row.get(0))?;
+            let sources = conn.query_row("SELECT COUNT(*) FROM sources WHERE deleted_at IS NULL", [], |row| row.get(0))?;
+            let enabled_sources = conn.query_row("SELECT COUNT(*) FROM sources WHERE enabled=1 AND deleted_at IS NULL", [], |row| row.get(0))?;
             let skills = conn.query_row("SELECT COUNT(*) FROM skills", [], |row| row.get(0))?;
             let blocked_skills = conn.query_row(
                 "SELECT COUNT(*) FROM skills WHERE status='QUARANTINED' OR risk_level IN ('HIGH','CRITICAL')",
@@ -420,7 +428,7 @@ impl Db {
             )?;
             let categories = conn.query_row("SELECT COUNT(*) FROM categories", [], |row| row.get(0))?;
             let last_sync_at = conn
-                .query_row("SELECT MAX(last_sync_at) FROM sources", [], |row| row.get::<_, Option<String>>(0))
+                .query_row("SELECT MAX(last_sync_at) FROM sources WHERE deleted_at IS NULL", [], |row| row.get::<_, Option<String>>(0))
                 .optional()?
                 .flatten();
             Ok(Stats {
@@ -477,10 +485,4 @@ impl Db {
         })
     }
 
-    pub fn github_token(&self) -> AppResult<Option<String>> {
-        Ok(self
-            .get_setting("github_token")?
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty()))
-    }
 }
