@@ -21,6 +21,8 @@ Outputs: `docs/audit/*.png` plus a route/console summary. The final run reported
   state updated correctly, then the test install was removed.
 - Screenshots: `home`, `explore`, `explore-search`, `categories`, `library`, `updates`, `agents`, `sources`, `activity`,
   `settings`, `skill-detail`, `skill-detail-readme`, `source-form`, `home-light`, `home-980x640`.
+- Windows NSIS installer built, silently installed, launched from `%LOCALAPPDATA%\Skills Launcher`, uninstalled and
+  reinstalled successfully. The installed build reports 5 sources / 105 skills / 0 installations from the real DB.
 
 ## Improvements made during the audit
 
