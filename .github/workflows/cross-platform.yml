@@ -73,10 +73,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libgtk-3-dev patchelf xvfb dbus-x11 xdotool imagemagick x11-utils
       - run: npm ci
-      - run: npm run ui:build -w @skills-launcher/desktop
       - name: Build Tauri binary
-        working-directory: apps/desktop/src-tauri
-        run: cargo build --release
+        working-directory: apps/desktop
+        run: npm run build:exe
       - name: GUI smoke and screenshot (Linux)
         if: runner.os == 'Linux'
         working-directory: apps/desktop
