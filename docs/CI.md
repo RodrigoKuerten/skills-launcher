@@ -2,8 +2,11 @@
 
 Workflow: `.github/workflows/cross-platform.yml`
 
-First fully green run: <https://github.com/RodrigoKuerten/skills-launcher/actions/runs/42922366809>
+First fully green branch run: <https://github.com/RodrigoKuerten/skills-launcher/actions/runs/42922366809>
 Commit: `21ce402646c5cbb30a865566497f7cc4d166c63f`
+
+First fully green `main` run: <https://github.com/RodrigoKuerten/skills-launcher/actions/runs/42923443073>
+Commit: `c1378a36bfb4e1e5de8868a34a3a0c8e554c5f50`
 
 | Job | Runner | Result |
 | --- | --- | --- |
