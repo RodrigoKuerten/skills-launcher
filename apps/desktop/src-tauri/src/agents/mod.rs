@@ -195,9 +195,15 @@ fn find_executable(descriptor: &HostDescriptor) -> Option<PathBuf> {
             }
         }
     }
-    app_candidates(descriptor.id)
-        .into_iter()
-        .find(|path| path.is_file())
+    let mut candidates = app_candidates(descriptor.id);
+    if descriptor.id == "opencode" {
+        candidates.sort_by_key(|path| {
+            !path
+                .file_name()
+                .is_some_and(|name| name.to_string_lossy().contains("opencode-cli"))
+        });
+    }
+    candidates.into_iter().find(|path| path.is_file())
 }
 
 fn home_dir() -> AppResult<PathBuf> {
