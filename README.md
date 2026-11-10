@@ -7,7 +7,8 @@ verifiable sources, inspect provenance and security findings, install them into 
 them current with backups and rollback.
 
 > Automated scans are heuristics, not a security guarantee. Compatibility badges describe Agent Skills format support,
-> not a promise that a specific agent build will load every field. macOS/Linux builds are not validated yet.
+> not a promise that a specific agent build will load every field. macOS/Linux CI validates the real Tauri window and
+> an OpenCode install smoke; other agent hosts and packaged installers there still need validation.
 
 ## Desktop app (primary product)
 
@@ -89,7 +90,7 @@ do not use the loopback companion.
 - `docs/AGENTS.md` — host matrix, detection evidence, install/backup/rollback
 - `docs/SECURITY.md` — security boundaries and residual risks
 - `docs/AUDIT.md` — Playwright design audit and screenshots
-- `docs/CI.md` — Linux/macOS/Windows build and launch evidence
+- `docs/CI.md` - Linux/macOS GUI, OpenCode and cross-platform test evidence
 - `docs/research/competitors.md` — source-linked competitor/license research
 - `docs/ARCHITECTURE.md` — earlier web/companion architecture
 

@@ -106,9 +106,10 @@ release cadence appears.
 
 Current Windows evidence (2026-11-10):
 
-- All five seeded official GitHub sources sync through the app: 105 real skills, 2 quarantined, 0 invented rows.
+- Source sync smoke against a fresh database imports **377 real skills** from the **11 seeded sources** (9 quarantined,
+  0 invented rows). The original five-source Windows audit imported 105; the six added sources bring the catalog to 377.
 - Local source sync, security quarantine, install/update with user extras, backups, rollback, ZIP traversal and path
-  validation pass in `cargo test` (8 passing) and `cargo clippy -- -D warnings`.
+  validation pass in `cargo test` (9 passing) and `cargo clippy -- -D warnings`.
 - Real detection on this machine reports only OpenCode (runtime evidence); config/skills folders alone stay
   not-detected. UI install/uninstall into OpenCode was exercised end to end.
 - `npm run build:desktop` produces the NSIS installer; it was installed, launched, uninstalled and reinstalled.
@@ -119,7 +120,8 @@ Current Windows evidence (2026-11-10):
 Remaining acceptance checks:
 
 - UI import/export round-trip against a second install (backend parsing is tested, UI flow is not automated).
-- Linux/macOS GUI behavior and real agent-host detection/install on those systems. CI now validates compile, Rust tests,
-  frontend build and a 10-second process launch on both; it cannot validate real agent binaries there.
+- Linux/macOS click-through GUI flows and the remaining agent hosts. CI already validates the real window render,
+  OpenCode 1.19.5 detection/install/uninstall and the shared tests; it does not automate interactions or install
+  Claude Code, Codex, Cursor, Copilot, Gemini CLI or Windsurf there.
 - Project-scope installs and code signing are future work.
 - No remote URL, source content or skill file is rendered as raw HTML.

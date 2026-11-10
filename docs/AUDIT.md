@@ -51,9 +51,24 @@ reported **0 console errors**.
 - Normalized non-SPDX license strings to `See LICENSE`; trust labels now state that they are self-declared source labels.
 - Kept compact/icon-only sidebar at 980×640 and verified both dark and light palettes; reduced-motion support remains.
 
+## Cross-platform GUI follow-up (2026-11-10)
+
+GitHub Actions now launches the release Tauri build and captures the real window on both platforms:
+
+- Linux (WebKitGTK/Xvfb): `1320x860`, non-blank render (`stddev 0.0985792`), screenshot
+  `audit/linux-home.png`.
+- macOS (WKWebView/CoreGraphics): `1136x786` window capture, non-blank render (`stddev 0.198919`),
+  screenshot `audit/macos-home.png`.
+- Both show the Home route with the **11 seeded sources**; a fresh CI database has no synced skills yet.
+- OpenCode 1.19.5 was installed in both CI jobs and passed real detection plus install/uninstall into
+  `~/.config/opencode/skills`.
+
+See `docs/CI.md` for the run link, logs and limits.
+
 ## Residual limits
 
-- Windows/WebView2 is the only runtime exercised. Linux/macOS descriptors exist but were not run on real runners.
+- Windows/WebView2 is the only runtime with full click-through interaction exercised. Linux/macOS CI verifies
+  render and window presence plus the real OpenCode backend flow, not click-through UI flows.
 - Project-scope install is not implemented; only user-level skill roots are written.
 - No screenshots from a real second monitor/DPI setup; layout tested at 1320×860 and 980×640.
 - Form dirty-state protection and a full WAI-ARIA radio group for theme cards are still future polish.

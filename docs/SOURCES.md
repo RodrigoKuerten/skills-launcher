@@ -13,11 +13,40 @@ Sources are untrusted catalogs. Adapters fetch bytes only; validation, scanning,
 | `git_repo` | `url=https://...`, config `{branch?, path?}` | Uses system `git clone --depth 1` into an isolated temp directory; no shell, no hooks. |
 | `http_json` | `url=https://...` | Versioned catalog contract below; no HTML scraping. |
 
+## Recommended seed sources
+
+The app seeds these by stable ID on every database open. `INSERT OR IGNORE` means existing users receive new recommended sources after an update without overwriting edits or resurrecting removed sources. Seeded sources start with auto-sync off; sync one or all explicitly.
+
+| Source | Repository / path | Trust | License | Fresh sync |
+|---|---|---|---|---|
+| Anthropic Skills | `anthropics/skills` — `skills` | OFFICIAL | source repo | 19 skills (1 quarantined) |
+| OpenAI Skills | `openai/skills` — `skills/.curated` | OFFICIAL | source repo | 39 skills (1 quarantined) |
+| Microsoft Skills | `microsoft/skills` — `.github/skills` | OFFICIAL | source repo | 13 skills |
+| Hugging Face Skills | `huggingface/skills` — `skills` | OFFICIAL | source repo | 25 skills |
+| Vercel Agent Skills | `vercel-labs/agent-skills` — `skills` | VERIFIED | source repo | 9 skills |
+| NVIDIA Skills | `NVIDIA/skills` — `skills` | OFFICIAL | Apache-2.0 / CC-BY-4.0 | 200 skills imported (source has more; per-source cap) |
+| Cloudflare Skills | `cloudflare/skills` — `skills` | OFFICIAL | Apache-2.0 | 22 skills |
+| Supabase Agent Skills | `supabase/agent-skills` — `skills` | OFFICIAL | MIT | 2 skills |
+| Anthony Fu Skills | `antfu/skills` — `skills` | COMMUNITY | MIT | 14 skills |
+| Kotlin Backend Agent Skills | `Kotlin/kotlin-backend-agent-skills` — `.agents/skills` | VERIFIED | MIT | 25 skills |
+| OpenClaw Agent Skills | `openclaw/agent-skills` — `skills` | COMMUNITY | MIT | 9 skills |
+
+Fresh-database sync snapshot: **377 skills**, **9 quarantined**, **11 sources**. Upstream counts change. NVIDIA has more than the 200-skill per-source import cap.
+
+Reproduce with:
+
+```bash
+cd apps/desktop/src-tauri
+cargo test seeded_sources_sync_smoke -- --ignored --nocapture
+```
+
+`github/awesome-copilot` was evaluated but is not seeded: its repository archive exceeds the codeload expansion budget before the `skills/` subpath can be scanned. Adding it would require a partial-archive adapter.
+
 ## GitHub behavior
 
 - Public repositories use `https://codeload.github.com/...` directly. This keeps sync usable when the GitHub API allows only 60 requests/hour.
 - Optional token is held in memory for the current app session only; it is never written to SQLite.
-- Archive cap: 128 MB compressed/uncompressed budget, 15,000 entries, 1,000 text files per skill, 512 KB per file, 32 MB per skill. Symlink entries are skipped (archives are never extracted).
+- Archive cap: 128 MB compressed/uncompressed budget, 15,000 entries, 1,000 text files per skill, 512 KB per file, 32 MB per skill, 200 skills per source.
 - GitHub organization sync requires API access and may fail on rate limits; the error is explicit.
 
 ## HTTP JSON contract
@@ -48,7 +77,7 @@ The top level may also be an array of skill objects. `SKILL.md` is required in e
 
 ## Sync result
 
-Each sync writes a `source_runs` row and updates source status. Skills are deduplicated by `(source_id, source_path)`; versions by `(skill_id, content_hash)`. A changed hash creates a new immutable version and moves `latest_version_id`. A removed skill is not deleted automatically — installed provenance remains.
+Each sync writes a `source_runs` row and updates source status. Skills are deduplicated by `(source_id, source_path)`; versions by `(skill_id, content_hash)`. A changed hash creates a new immutable version and moves `latest_version_id`. A removed skill is not deleted automatically - installed provenance remains.
 
 ## Scanner
 
@@ -67,4 +96,5 @@ The scanner checks prompt-injection language, exfiltration/destructive commands,
 - Source config editing is limited to the fields exposed in the UI; GitHub branch/subpath editing uses the source form.
 - Auto-sync runs on a 5-minute scheduler when enabled in Settings and the source has `autoSync`. There is no durable
   job queue or retry/backoff yet.
-- Windows runtime is validated first. Linux and macOS adapters are code-complete but not yet exercised on real runners.
+- Windows has full interactive validation. Linux/macOS now build, render the real Tauri window and run a real
+  OpenCode detection/install smoke in CI (`docs/CI.md`); the other host adapters are not yet exercised there.
