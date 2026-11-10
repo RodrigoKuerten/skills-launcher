@@ -79,11 +79,10 @@ pub async fn sync_source(
     )
     .await?;
     let auto = {
-        let _guard = state
-            .install_lock
-            .lock()
-            .map_err(|_| AppError::Other("Install lock poisoned".into()))?;
-        crate::agents::auto_update(&state.db, &state.data_dir).unwrap_or_default()
+        let _guard = state.install_lock.lock().await;
+        crate::agents::auto_update(&state.db, &state.data_dir)
+            .await
+            .unwrap_or_default()
     };
     let _ = app.emit("catalog-updated", &summary);
     if !auto.is_empty() {
@@ -106,11 +105,10 @@ pub async fn sync_all_sources(
     let summaries =
         catalog::sync_all(&state.db, &state.http, token.as_deref(), &state.temp_dir).await?;
     let auto = {
-        let _guard = state
-            .install_lock
-            .lock()
-            .map_err(|_| AppError::Other("Install lock poisoned".into()))?;
-        crate::agents::auto_update(&state.db, &state.data_dir).unwrap_or_default()
+        let _guard = state.install_lock.lock().await;
+        crate::agents::auto_update(&state.db, &state.data_dir)
+            .await
+            .unwrap_or_default()
     };
     let _ = app.emit("catalog-updated", &summaries);
     if !auto.is_empty() {
@@ -135,7 +133,7 @@ pub fn import_sources(state: State<'_, AppState>, json: String) -> AppResult<Vec
 }
 
 #[tauri::command]
-pub fn pick_source_path(
+pub async fn pick_source_path(
     app: AppHandle,
     state: State<'_, AppState>,
     kind: String,

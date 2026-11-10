@@ -13,7 +13,7 @@ pub struct AppState {
     pub temp_dir: PathBuf,
     pub github_token: Mutex<Option<String>>,
     pub grants: Mutex<HashSet<PathBuf>>,
-    pub install_lock: Mutex<()>,
+    pub install_lock: tokio::sync::Mutex<()>,
     pub sync_lock: tokio::sync::Mutex<()>,
 }
 
@@ -23,6 +23,7 @@ impl AppState {
             .user_agent("SkillsLauncher/0.2 (+https://skillslauncher.app)")
             .timeout(Duration::from_secs(60))
             .connect_timeout(Duration::from_secs(15))
+            .redirect(reqwest::redirect::Policy::none())
             .build()?;
         let temp_dir = data_dir.join("tmp");
         std::fs::create_dir_all(&temp_dir)?;
@@ -33,7 +34,7 @@ impl AppState {
             temp_dir,
             github_token: Mutex::new(None),
             grants: Mutex::new(HashSet::new()),
-            install_lock: Mutex::new(()),
+            install_lock: tokio::sync::Mutex::new(()),
             sync_lock: tokio::sync::Mutex::new(()),
         })
     }

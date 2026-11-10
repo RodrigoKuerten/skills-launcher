@@ -111,6 +111,13 @@ pub fn update_installation(
     detected: &[DetectedAgent],
 ) -> AppResult<InstallResponse> {
     let installation = load_installation(db, id)?;
+    let host = descriptor(&installation.host)?;
+    let expected = user_skills_root(host)?.join(&load_skill(db, &installation.skill_id)?.slug);
+    if Path::new(&installation.install_path) != expected.as_path() {
+        return Err(AppError::Validation(
+            "The installed path changed. Uninstall it before installing again.".into(),
+        ));
+    }
     let skill = load_skill(db, &installation.skill_id)?;
     let version = load_version(db, &skill, None)?;
     if version.status == "QUARANTINED" || matches!(version.risk_level.as_str(), "HIGH" | "CRITICAL")
@@ -152,11 +159,12 @@ pub fn uninstall_skill(db: &Db, data_dir: &Path, id: &str, remove_files: bool) -
     let target = PathBuf::from(&installation.install_path);
     let root = canonical_or_create(&root)?;
     let home = home_canonical()?;
-    if !root.starts_with(&home) || !target.starts_with(&root) {
+    if !root.starts_with(&home) {
         return Err(AppError::Security(
-            "Install path is outside the agent skill root".into(),
+            "Install path is outside the home directory".into(),
         ));
     }
+    ensure_target_under(&root, &target)?;
     if remove_files && target.exists() {
         reject_reparse(&target)?;
         create_backup(
@@ -176,6 +184,10 @@ pub fn uninstall_skill(db: &Db, data_dir: &Path, id: &str, remove_files: bool) -
         conn.execute(
             "UPDATE installations SET status='REMOVED',updated_at=?1 WHERE id=?2",
             params![now_iso(), installation.id],
+        )?;
+        conn.execute(
+            "UPDATE skills SET install_count=(SELECT COUNT(*) FROM installations WHERE skill_id=?1 AND status='INSTALLED') WHERE id=?1",
+            params![installation.skill_id],
         )?;
         Ok(())
     })?;
@@ -205,11 +217,7 @@ pub fn rollback_installation(
     let host = descriptor(&installation.host)?;
     let root = canonical_or_create(&user_skills_root(host)?)?;
     let target = PathBuf::from(&installation.install_path);
-    if !target.starts_with(&root) {
-        return Err(AppError::Security(
-            "Install path is outside the agent skill root".into(),
-        ));
-    }
+    ensure_target_under(&root, &target)?;
     reject_reparse(&target)?;
     restore_backup(db, data_dir, &installation, &backup, &root, &target)
 }
@@ -308,7 +316,8 @@ pub fn list_backups(db: &Db, installation_id: Option<&str>) -> AppResult<Vec<Bac
     })
 }
 
-pub fn auto_update(db: &Db, data_dir: &Path) -> AppResult<Vec<InstallOutcome>> {
+pub async fn auto_update(db: &Db, data_dir: &Path) -> AppResult<Vec<InstallOutcome>> {
+    let detected = super::detect_all(db).await?;
     let rows = db.with_conn(|conn| {
         let mut statement = conn.prepare(
             "SELECT i.id,i.skill_id,i.host,i.install_path FROM installations i WHERE i.status='INSTALLED'",
@@ -329,13 +338,12 @@ pub fn auto_update(db: &Db, data_dir: &Path) -> AppResult<Vec<InstallOutcome>> {
     })?;
     let mut outcomes = Vec::new();
     for installation in rows {
-        let enabled = db
-            .get_setting(&format!("agent_auto_install.{}", installation.host))?
-            .as_deref()
-            == Some("true");
-        if !enabled {
+        let Some(agent) = detected
+            .iter()
+            .find(|agent| agent.host == installation.host && agent.detected && agent.auto_install)
+        else {
             continue;
-        }
+        };
         let skill = load_skill(db, &installation.skill_id)?;
         let Some(latest) = skill.latest_version_id.as_ref() else {
             continue;
@@ -359,29 +367,12 @@ pub fn auto_update(db: &Db, data_dir: &Path) -> AppResult<Vec<InstallOutcome>> {
         {
             continue;
         }
-        let descriptor = match descriptor(&installation.host) {
-            Ok(descriptor) => descriptor,
-            Err(_) => continue,
-        };
-        let agent = DetectedAgent {
-            host: descriptor.id.into(),
-            name: descriptor.name.into(),
-            detected: true,
-            executable_path: None,
-            version: None,
-            config_path: None,
-            skills_path: Some(user_skills_root(descriptor)?.to_string_lossy().to_string()),
-            project_skills_path: Some(descriptor.project_root.into()),
-            supports_agent_skills: true,
-            auto_install: true,
-            notes: vec!["Auto-update from an existing installation".into()],
-        };
         outcomes.push(install_one(
             db,
             data_dir,
             &skill,
             &version,
-            &agent,
+            agent,
             "pre_update",
         ));
     }
@@ -433,10 +424,16 @@ fn install_to_root(
         ));
     }
     let target = root.join(&skill.slug);
+    ensure_target_under(root, &target)?;
     reject_reparse(&target)?;
     let target_exists = target.exists();
     let (installation_id, managed, previous_version_id, previous_label) =
         ensure_installation(db, skill, version, &agent.host, &target, target_exists)?;
+    let mut failure_guard = FailedInstallGuard {
+        db,
+        installation_id: &installation_id,
+        armed: true,
+    };
     if target_exists && !managed {
         return Err(AppError::Security(format!(
             "A folder already exists at {} and is not managed by Skills Launcher",
@@ -487,6 +484,10 @@ fn install_to_root(
             "UPDATE installations SET version_id=?1,content_hash=?2,status='INSTALLED',updated_at=?3 WHERE id=?4",
             params![version.id, version.content_hash, now_iso(), installation_id],
         )?;
+        conn.execute(
+            "UPDATE skills SET install_count=(SELECT COUNT(*) FROM installations WHERE skill_id=?1 AND status='INSTALLED') WHERE id=?1",
+            params![skill.id],
+        )?;
         Ok(())
     })?;
     db.log_operation(
@@ -496,7 +497,22 @@ fn install_to_root(
         "success",
         Some(&format!("{} installed at {}", skill.name, target.display())),
     )?;
+    failure_guard.armed = false;
     Ok(target.to_string_lossy().to_string())
+}
+
+struct FailedInstallGuard<'a> {
+    db: &'a Db,
+    installation_id: &'a str,
+    armed: bool,
+}
+
+impl Drop for FailedInstallGuard<'_> {
+    fn drop(&mut self) {
+        if self.armed {
+            mark_failed(self.db, self.installation_id);
+        }
+    }
 }
 
 fn managed_files_for_version(
@@ -522,7 +538,7 @@ fn managed_files_for_version(
 fn load_skill(db: &Db, id: &str) -> AppResult<SkillInfo> {
     db.with_conn(|conn| {
         conn.query_row(
-            "SELECT id,slug,name,latest_version_id FROM skills WHERE id=?1",
+            "SELECT s.id,s.slug,s.name,s.latest_version_id FROM skills s JOIN sources src ON src.id=s.source_id WHERE s.id=?1 AND src.deleted_at IS NULL AND s.status <> 'ARCHIVED'",
             params![id],
             |row| {
                 Ok(SkillInfo {
@@ -589,7 +605,7 @@ fn ensure_installation(
     let existing: Option<(String, Option<String>, Option<String>)> = db.with_conn(|conn| {
         Ok(conn
             .query_row(
-                "SELECT i.id,i.version_id,v.version_label FROM installations i LEFT JOIN skill_versions v ON v.id=i.version_id WHERE i.host=?1 AND i.skill_id=?2 AND i.install_path=?3",
+                "SELECT i.id,i.version_id,v.version_label FROM installations i LEFT JOIN skill_versions v ON v.id=i.version_id WHERE i.host=?1 AND i.skill_id=?2 AND i.install_path=?3 AND i.status <> 'REMOVED'",
                 params![host, skill.id, path],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
@@ -647,6 +663,7 @@ fn create_backup(
     reject_reparse(source)?;
     let id = uuid::Uuid::new_v4().to_string();
     let destination = data_dir.join("backups").join(&id);
+    let manifest_path = data_dir.join("backups").join(format!("{id}.json"));
     if destination.exists() {
         return Err(AppError::Other("Backup path collision".into()));
     }
@@ -660,10 +677,7 @@ fn create_backup(
             "files": files,
             "bytes": bytes
         });
-        std::fs::write(
-            destination.join("manifest.json"),
-            serde_json::to_vec_pretty(&manifest)?,
-        )?;
+        std::fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?)?;
         db.with_conn(|conn| {
             conn.execute(
                 "INSERT INTO backups(id,installation_id,skill_id,host,path,version_id,version_label,content_hash,reason,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
@@ -686,6 +700,7 @@ fn create_backup(
     })();
     if let Err(error) = result {
         let _ = std::fs::remove_dir_all(&destination);
+        let _ = std::fs::remove_file(&manifest_path);
         return Err(error);
     }
     Ok(destination.to_string_lossy().to_string())
@@ -740,11 +755,18 @@ fn copy_extras(
             continue;
         }
         let Some(safe) = safe_relative_path(&relative) else {
-            continue;
+            return Err(AppError::Validation(format!(
+                "Cannot preserve user file with an unsafe path: {relative}"
+            )));
         };
         let metadata = entry.metadata().map_err(|error| {
             AppError::Validation(format!("Could not read installed file: {error}"))
         })?;
+        if crate::paths::is_reparse(&metadata) {
+            return Err(AppError::Security(
+                "Reparse-point files are not allowed in skill folders".into(),
+            ));
+        }
         bytes += metadata.len();
         count += 1;
         if count > MAX_EXTRA_FILES || bytes > MAX_EXTRA_BYTES {
@@ -762,7 +784,14 @@ fn copy_extras(
 }
 
 fn swap(root: &Path, target: &Path, staging: &Path) -> AppResult<()> {
-    let old = root.join(format!(".skills-launcher-old-{}", uuid::Uuid::new_v4()));
+    let name = target
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| "skill".into());
+    let old = root.join(format!(
+        ".{name}.skills-launcher-old-{}",
+        uuid::Uuid::new_v4()
+    ));
     let had_target = target.exists();
     if had_target {
         std::fs::rename(target, &old)?;
@@ -856,9 +885,13 @@ fn copy_tree(source: &Path, destination: &Path) -> AppResult<()> {
     for entry in WalkDir::new(source).follow_links(false).min_depth(1) {
         let entry = entry
             .map_err(|error| AppError::Validation(format!("Could not read backup: {error}")))?;
-        if entry.file_type().is_symlink() {
+        if entry
+            .metadata()
+            .map(|metadata| crate::paths::is_reparse(&metadata))
+            .unwrap_or(true)
+        {
             return Err(AppError::Security(
-                "Symlinks are not allowed in skill folders".into(),
+                "Symlinks and reparse points are not allowed in skill folders".into(),
             ));
         }
         let relative = entry
@@ -866,11 +899,10 @@ fn copy_tree(source: &Path, destination: &Path) -> AppResult<()> {
             .strip_prefix(source)
             .map_err(|_| AppError::Security("Backup path escaped its root".into()))?;
         let relative = relative.to_string_lossy().replace('\\', "/");
-        if relative == "manifest.json" {
-            continue;
-        }
         let Some(safe) = safe_relative_path(&relative) else {
-            continue;
+            return Err(AppError::Validation(format!(
+                "Backup contains an unsafe path: {relative}"
+            )));
         };
         let target = destination.join(safe);
         if entry.file_type().is_dir() {
@@ -908,7 +940,9 @@ fn copy_tree_manifest(
             .to_string_lossy()
             .replace('\\', "/");
         let Some(safe) = safe_relative_path(&relative) else {
-            continue;
+            return Err(AppError::Validation(format!(
+                "Backup contains an unsafe path: {relative}"
+            )));
         };
         let target = destination.join(&safe);
         if entry.file_type().is_dir() {
@@ -921,6 +955,11 @@ fn copy_tree_manifest(
         let metadata = entry.metadata().map_err(|error| {
             AppError::Validation(format!("Could not read backup file: {error}"))
         })?;
+        if crate::paths::is_reparse(&metadata) {
+            return Err(AppError::Security(
+                "Reparse-point files are not allowed in skill folders".into(),
+            ));
+        }
         bytes += metadata.len();
         if files.len() >= MAX_BACKUP_FILES || bytes > MAX_BACKUP_BYTES {
             return Err(AppError::Validation(
@@ -940,24 +979,32 @@ fn copy_tree_manifest(
     Ok((files, bytes, hex::encode(hasher.finalize())))
 }
 
+fn ensure_target_under(root: &Path, target: &Path) -> AppResult<()> {
+    let canonical_root = crate::paths::canonical(root).map_err(AppError::Io)?;
+    if target.parent() != Some(root) && target.parent() != Some(canonical_root.as_path()) {
+        return Err(AppError::Security(
+            "Install path is not a direct child of the agent skill root".into(),
+        ));
+    }
+    if target.exists() {
+        let canonical = crate::paths::canonical(target).map_err(AppError::Io)?;
+        if canonical.parent() != Some(canonical_root.as_path()) {
+            return Err(AppError::Security(
+                "Install path resolves outside the agent skill root".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn reject_reparse(path: &Path) -> AppResult<()> {
     let Ok(metadata) = std::fs::symlink_metadata(path) else {
         return Ok(());
     };
-    if metadata.file_type().is_symlink() {
+    if crate::paths::is_reparse(&metadata) {
         return Err(AppError::Security(
-            "Symlinked skill folders are not supported".into(),
+            "Symlinked or reparse-point skill folders are not supported".into(),
         ));
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::MetadataExt;
-        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
-        if metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
-            return Err(AppError::Security(
-                "Reparse-point skill folders are not supported".into(),
-            ));
-        }
     }
     Ok(())
 }

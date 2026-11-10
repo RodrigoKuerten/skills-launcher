@@ -100,6 +100,10 @@ pub fn parse_skill_dir(
         .map(|value| clean_inline(&value))
         .filter(|value| !value.is_empty())
         .unwrap_or(meta.author);
+    let name = truncate_chars(&name, 120);
+    let author = truncate_chars(&author, 120);
+    let version = version.map(|value| truncate_chars(&value, 64));
+    let homepage = homepage.map(|value| truncate_chars(&value, 2048));
     let category = classify(&format!("{name} {description} {}", body));
 
     let mut files = files;
@@ -259,6 +263,16 @@ pub fn validate_source_url(kind: &SourceKind, value: &str) -> AppResult<()> {
         }
         SourceKind::GithubRepo => {
             let parsed = url::Url::parse(value)?;
+            if !parsed.username().is_empty() || parsed.password().is_some() {
+                return Err(AppError::Validation(
+                    "Credentials must not be embedded in source URLs".into(),
+                ));
+            }
+            if parsed.query().is_some() || parsed.fragment().is_some() {
+                return Err(AppError::Validation(
+                    "Source URLs must not include a query string or fragment".into(),
+                ));
+            }
             if parsed.scheme() != "https"
                 || parsed.host_str() != Some("github.com")
                 || parsed.path().trim_matches('/').split('/').count() != 2
@@ -270,6 +284,16 @@ pub fn validate_source_url(kind: &SourceKind, value: &str) -> AppResult<()> {
         }
         SourceKind::GithubOrg => {
             let parsed = url::Url::parse(value)?;
+            if !parsed.username().is_empty() || parsed.password().is_some() {
+                return Err(AppError::Validation(
+                    "Credentials must not be embedded in source URLs".into(),
+                ));
+            }
+            if parsed.query().is_some() || parsed.fragment().is_some() {
+                return Err(AppError::Validation(
+                    "Source URLs must not include a query string or fragment".into(),
+                ));
+            }
             if parsed.scheme() != "https"
                 || parsed.host_str() != Some("github.com")
                 || parsed.path().trim_matches('/').split('/').count() != 1
@@ -289,6 +313,11 @@ pub fn validate_source_url(kind: &SourceKind, value: &str) -> AppResult<()> {
                     "Credentials must not be embedded in source URLs".into(),
                 ));
             }
+            if parsed.query().is_some() || parsed.fragment().is_some() {
+                return Err(AppError::Validation(
+                    "Source URLs must not include a query string or fragment".into(),
+                ));
+            }
             let host = parsed.host_str().unwrap_or_default().to_ascii_lowercase();
             if host == "localhost" || host.ends_with(".localhost") || is_private_ip(&host) {
                 return Err(AppError::Validation(
@@ -304,6 +333,10 @@ fn is_private_ip(host: &str) -> bool {
     let Ok(address) = host.parse::<std::net::IpAddr>() else {
         return false;
     };
+    is_private_address(address)
+}
+
+fn is_private_address(address: std::net::IpAddr) -> bool {
     match address {
         std::net::IpAddr::V4(address) => {
             address.is_loopback()
@@ -311,8 +344,51 @@ fn is_private_ip(host: &str) -> bool {
                 || address.is_link_local()
                 || address.is_unspecified()
         }
-        std::net::IpAddr::V6(address) => address.is_loopback() || address.is_unspecified(),
+        std::net::IpAddr::V6(address) => {
+            let segments = address.segments();
+            address.is_loopback()
+                || address.is_unspecified()
+                || (segments[0] & 0xfe00) == 0xfc00
+                || (segments[0] & 0xffc0) == 0xfe80
+        }
     }
+}
+
+pub async fn ensure_public_host(url: &str) -> AppResult<()> {
+    let parsed = url::Url::parse(url)?;
+    let host = parsed
+        .host_str()
+        .ok_or_else(|| AppError::Validation("Source URL has no host".into()))?
+        .to_string();
+    if host == "localhost" || host.ends_with(".localhost") {
+        return Err(AppError::Validation(
+            "Remote sources must not target localhost".into(),
+        ));
+    }
+    if let Ok(address) = host.parse::<std::net::IpAddr>() {
+        return if is_private_address(address) {
+            Err(AppError::Validation(
+                "Remote sources must not target a private address".into(),
+            ))
+        } else {
+            Ok(())
+        };
+    }
+    let port = parsed.port_or_known_default().unwrap_or(443);
+    let addresses = tokio::net::lookup_host((host.as_str(), port))
+        .await
+        .map_err(|error| AppError::Validation(format!("Could not resolve source host: {error}")))?;
+    if addresses
+        .into_iter()
+        .any(|address| is_private_address(address.ip()))
+    {
+        return Err(AppError::Validation(
+            "Source host resolves to a private address".into(),
+        ));
+    }
+    // shortcut: DNS rebinding between this check and the connect is not covered;
+    // use a connect-time resolver if remote catalogs become a shared service.
+    Ok(())
 }
 
 pub fn slugify(value: &str) -> String {

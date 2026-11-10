@@ -38,6 +38,8 @@ pub(crate) fn read_local_dir(source: &Source) -> AppResult<SourceSyncResult> {
     }
 
     let mut all_files: Vec<(String, String)> = Vec::new();
+    let mut total_bytes = 0usize;
+    let mut total_entries = 0usize;
     let mut entries = WalkDir::new(&root)
         .max_depth(8)
         .follow_links(false)
@@ -48,6 +50,11 @@ pub(crate) fn read_local_dir(source: &Source) -> AppResult<SourceSyncResult> {
         })?;
         if entry.file_type().is_symlink() {
             continue;
+        }
+        if let Ok(metadata) = std::fs::symlink_metadata(entry.path()) {
+            if crate::paths::is_reparse(&metadata) {
+                continue;
+            }
         }
         let name = entry.file_name().to_string_lossy();
         if entry.file_type().is_dir() {
@@ -81,6 +88,13 @@ pub(crate) fn read_local_dir(source: &Source) -> AppResult<SourceSyncResult> {
             continue;
         };
         if let Some(content) = decode_text(&bytes) {
+            total_entries += 1;
+            total_bytes = total_bytes.saturating_add(content.len());
+            if total_entries > 15_000 || total_bytes > 128 * 1024 * 1024 {
+                return Err(AppError::Validation(
+                    "Local source exceeds the scan budget".into(),
+                ));
+            }
             all_files.push((safe, content));
         }
     }
@@ -119,6 +133,7 @@ fn skills_from_files(
     for skill_root in skill_roots {
         let mut selected: Vec<SkillFile> = Vec::new();
         let mut total = 0usize;
+        let mut seen_paths = std::collections::BTreeSet::new();
         for (path, content) in &all_files {
             let relative = if skill_root.is_empty() {
                 Some(path.as_str())
@@ -133,6 +148,11 @@ fn skills_from_files(
                 && !path.eq_ignore_ascii_case("SKILL.md")
             {
                 continue;
+            }
+            if !seen_paths.insert(relative.to_ascii_lowercase()) {
+                return Err(AppError::Validation(format!(
+                    "Skill '{skill_root}' contains case-colliding paths"
+                )));
             }
             total += content.len();
             if total > MAX_SKILL_BYTES {

@@ -134,7 +134,14 @@ impl super::SourceAdapter for GithubOrgAdapter {
             )
             .await;
             match result {
-                Ok(found) => {
+                Ok(mut found) => {
+                    for skill in &mut found.skills {
+                        skill.source_path = if skill.source_path == "." {
+                            repo.full_name.clone()
+                        } else {
+                            format!("{}/{}", repo.full_name, skill.source_path)
+                        };
+                    }
                     if license.is_none() {
                         license = found.source_license.clone();
                     }

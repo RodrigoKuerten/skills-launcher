@@ -49,7 +49,7 @@ const HOSTS: &[HostDescriptor] = &[
     HostDescriptor {
         id: "cursor",
         name: "Cursor",
-        executables: &["cursor", "agent"],
+        executables: &["cursor"],
         user_root: ".cursor/skills",
         project_root: ".cursor/skills",
         docs_url: "https://cursor.com/docs/skills",
@@ -80,6 +80,43 @@ const HOSTS: &[HostDescriptor] = &[
         docs_url: "https://docs.windsurf.com/",
     },
 ];
+
+pub fn recover_stale_swaps() {
+    let Ok(home) = home_dir() else {
+        return;
+    };
+    for descriptor in HOSTS {
+        let root = join_relative(&home, descriptor.user_root);
+        let Ok(entries) = std::fs::read_dir(&root) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if !name.starts_with('.') {
+                continue;
+            }
+            if name.contains(".skills-launcher-tmp-") {
+                let _ = std::fs::remove_dir_all(entry.path());
+                continue;
+            }
+            let Some((target_name, _)) = name
+                .trim_start_matches('.')
+                .split_once(".skills-launcher-old-")
+            else {
+                continue;
+            };
+            if target_name.is_empty() {
+                continue;
+            }
+            let target = root.join(target_name);
+            if target.exists() {
+                let _ = std::fs::remove_dir_all(entry.path());
+            } else {
+                let _ = std::fs::rename(entry.path(), target);
+            }
+        }
+    }
+}
 
 pub async fn detect_all(db: &Db) -> AppResult<Vec<DetectedAgent>> {
     let mut agents = Vec::new();
@@ -126,8 +163,8 @@ async fn detect_one(db: &Db, descriptor: &HostDescriptor) -> AppResult<DetectedA
             }
         }
     }
-    let detected = executable.is_some();
-    let version = if let Some(executable) = &executable {
+    let mut detected = executable.is_some();
+    let mut version = if let Some(executable) = &executable {
         let version = probe_version(executable).await;
         if version.is_none() {
             notes.push("Runtime found, but its version probe failed".into());
@@ -139,6 +176,16 @@ async fn detect_one(db: &Db, descriptor: &HostDescriptor) -> AppResult<DetectedA
     let config_path = config_candidates(descriptor, &home)
         .into_iter()
         .find(|path| path.exists());
+    if descriptor.id == "copilot"
+        && detected
+        && config_path.is_none()
+        && !has_copilot_extension(&home)
+    {
+        detected = false;
+        executable = None;
+        version = None;
+        notes.push("A generic copilot executable was found, but no Copilot config or VS Code extension evidence exists.".into());
+    }
     let skills_root = join_relative(&home, descriptor.user_root);
     if detected {
         notes.push(format!(
