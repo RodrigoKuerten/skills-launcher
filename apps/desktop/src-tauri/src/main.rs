@@ -6,6 +6,7 @@ mod commands;
 mod db;
 mod domain;
 mod error;
+mod paths;
 mod security;
 mod sources;
 mod state;

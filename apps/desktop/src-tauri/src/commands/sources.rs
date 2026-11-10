@@ -4,7 +4,7 @@ use crate::domain::{
 };
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_dialog::DialogExt;
 
@@ -154,7 +154,7 @@ pub fn pick_source_path(
     let path = picked
         .into_path()
         .map_err(|error| AppError::Validation(format!("Invalid picked path: {error}")))?;
-    let canonical = std::fs::canonicalize(&path)
+    let canonical = crate::paths::canonical(&path)
         .map_err(|error| AppError::Validation(format!("Path is not accessible: {error}")))?;
     state
         .grants
@@ -171,7 +171,7 @@ fn require_grant(state: &AppState, input: &SourceInput) -> AppResult<()> {
     ) {
         return Ok(());
     }
-    let canonical = std::fs::canonicalize(&input.url)
+    let canonical = crate::paths::canonical(Path::new(&input.url))
         .map_err(|error| AppError::Validation(format!("Source path is not accessible: {error}")))?;
     let grants = state
         .grants

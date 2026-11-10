@@ -1008,7 +1008,7 @@ fn normalize_source(mut input: SourceInput) -> AppResult<SourceInput> {
     }
     sources::validate_source_url(&input.kind, &input.url)?;
     if matches!(input.kind, SourceKind::LocalDir | SourceKind::Zip) {
-        let path = std::fs::canonicalize(&input.url).map_err(|error| {
+        let path = crate::paths::canonical(Path::new(&input.url)).map_err(|error| {
             AppError::Validation(format!("Source path is not accessible: {error}"))
         })?;
         input.url = path.to_string_lossy().to_string();

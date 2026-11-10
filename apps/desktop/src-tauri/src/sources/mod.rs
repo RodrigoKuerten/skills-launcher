@@ -231,6 +231,11 @@ pub fn validate_source_url(kind: &SourceKind, value: &str) -> AppResult<()> {
     }
     match kind {
         SourceKind::LocalDir => {
+            if value.starts_with("//") || value.starts_with(r"\\") {
+                return Err(AppError::Validation(
+                    "Network paths are not supported".into(),
+                ));
+            }
             let path = Path::new(value);
             if !path.is_absolute() || !path.is_dir() {
                 return Err(AppError::Validation(
@@ -239,6 +244,11 @@ pub fn validate_source_url(kind: &SourceKind, value: &str) -> AppResult<()> {
             }
         }
         SourceKind::Zip => {
+            if value.starts_with("//") || value.starts_with(r"\\") {
+                return Err(AppError::Validation(
+                    "Network paths are not supported".into(),
+                ));
+            }
             let path = Path::new(value);
             if !path.is_absolute() || !path.is_file() {
                 return Err(AppError::Validation(

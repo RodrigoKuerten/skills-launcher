@@ -841,14 +841,13 @@ fn load_backup(
 }
 
 fn canonical_or_create(path: &Path) -> AppResult<PathBuf> {
-    std::fs::create_dir_all(path)?;
-    Ok(std::fs::canonicalize(path)?)
+    crate::paths::canonical_or_create(path).map_err(AppError::Io)
 }
 
 fn home_canonical() -> AppResult<PathBuf> {
     let home = dirs::home_dir()
         .ok_or_else(|| AppError::Other("Could not resolve home directory".into()))?;
-    Ok(std::fs::canonicalize(home)?)
+    crate::paths::canonical(&home).map_err(AppError::Io)
 }
 
 fn copy_tree(source: &Path, destination: &Path) -> AppResult<()> {

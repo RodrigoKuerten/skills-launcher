@@ -28,7 +28,7 @@ impl super::SourceAdapter for LocalDirAdapter {
 }
 
 pub(crate) fn read_local_dir(source: &Source) -> AppResult<SourceSyncResult> {
-    let root = std::fs::canonicalize(&source.url).map_err(|error| {
+    let root = crate::paths::canonical(std::path::Path::new(&source.url)).map_err(|error| {
         AppError::Validation(format!("Local source is not accessible: {error}"))
     })?;
     if !root.is_dir() {

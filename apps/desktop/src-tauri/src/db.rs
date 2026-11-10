@@ -278,6 +278,14 @@ impl Db {
             "UPDATE skill_versions SET version_label=substr(content_hash,1,8) WHERE version_label IN ('main','master','')",
             [],
         )?;
+        conn.execute(
+            "UPDATE installations SET install_path=substr(install_path,5) WHERE install_path LIKE ?1",
+            params![r"\\?\%"],
+        )?;
+        conn.execute(
+            "UPDATE sources SET url=substr(url,5) WHERE kind IN ('local_dir','zip') AND url LIKE ?1",
+            params![r"\\?\%"],
+        )?;
         let db = Self {
             conn: Mutex::new(conn),
         };
