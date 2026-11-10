@@ -86,6 +86,7 @@ pub fn parse_skill_dir(
     let license = frontmatter_string(&frontmatter, "license")
         .map(|value| clean_inline(&value))
         .filter(|value| !value.is_empty())
+        .map(normalize_license)
         .or(meta.license);
     let homepage = frontmatter_string(&frontmatter, "homepage")
         .or_else(|| frontmatter_string(&frontmatter, "metadata.homepage"))
@@ -371,6 +372,15 @@ pub fn humanize(value: &str) -> String {
 
 fn clean_inline(value: &str) -> String {
     value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn normalize_license(value: String) -> String {
+    let lower = value.to_ascii_lowercase();
+    if value.len() > 48 || lower.contains("license.txt") || lower.contains("terms in") {
+        "See LICENSE".into()
+    } else {
+        value
+    }
 }
 
 fn truncate_chars(value: &str, max: usize) -> String {
