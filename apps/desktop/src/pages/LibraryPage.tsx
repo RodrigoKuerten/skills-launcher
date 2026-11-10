@@ -330,7 +330,7 @@ export default function LibraryPage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-[12.5px] font-medium text-text">{installation.skillName}</span>
+                    <span className="text-[12.5px] font-medium text-text">{installation.skillName}</span>
                     <Badge tone="neutral">{hostName(installation.host)}</Badge>
                     <Badge tone={statusTone(installation.status)} dot>
                       {humanizeStatus(installation.status)}

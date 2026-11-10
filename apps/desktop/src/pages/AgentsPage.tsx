@@ -199,7 +199,7 @@ export default function AgentsPage() {
                       {agent.detected ? "Detected" : "Not detected"}
                     </Badge>
                     {agent.supportsAgentSkills ? (
-                      <Badge tone="brand">Agent Skills</Badge>
+                      <Badge tone="brand">Format: Agent Skills</Badge>
                     ) : (
                       <Badge tone="outline">Export only</Badge>
                     )}
