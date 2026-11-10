@@ -270,6 +270,10 @@ impl Db {
                 [],
             )?;
         }
+        conn.execute(
+            "UPDATE installations SET status='FAILED' WHERE status='INSTALLING'",
+            [],
+        )?;
         let db = Self {
             conn: Mutex::new(conn),
         };

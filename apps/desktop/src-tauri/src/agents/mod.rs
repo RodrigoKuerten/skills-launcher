@@ -105,7 +105,13 @@ pub(crate) fn descriptor(host: &str) -> AppResult<&'static HostDescriptor> {
 }
 
 pub(crate) fn user_skills_root(descriptor: &HostDescriptor) -> AppResult<PathBuf> {
-    Ok(home_dir()?.join(descriptor.user_root))
+    Ok(join_relative(&home_dir()?, descriptor.user_root))
+}
+
+fn join_relative(base: &Path, relative: &str) -> PathBuf {
+    relative
+        .split('/')
+        .fold(base.to_path_buf(), |path, part| path.join(part))
 }
 
 async fn detect_one(db: &Db, descriptor: &HostDescriptor) -> AppResult<DetectedAgent> {
@@ -133,7 +139,7 @@ async fn detect_one(db: &Db, descriptor: &HostDescriptor) -> AppResult<DetectedA
     let config_path = config_candidates(descriptor, &home)
         .into_iter()
         .find(|path| path.exists());
-    let skills_root = home.join(descriptor.user_root);
+    let skills_root = join_relative(&home, descriptor.user_root);
     if detected {
         notes.push(format!(
             "Runtime evidence: {}",
