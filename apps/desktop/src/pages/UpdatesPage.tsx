@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import {
   CheckCircle2,
   Download,
@@ -153,16 +153,18 @@ export default function UpdatesPage() {
               {!(loading && !updates) ? <RefreshCw className="size-3.5" aria-hidden="true" /> : null}
               Check again
             </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => void updateSelected()}
-              loading={Boolean(bulk)}
-              disabled={selected.size === 0 || Boolean(updatingId)}
-            >
-              {!bulk ? <Download className="size-3.5" aria-hidden="true" /> : null}
-              Update selected{selected.size > 0 ? ` (${selected.size})` : ""}
-            </Button>
+            {all.length > 0 ? (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => void updateSelected()}
+                loading={Boolean(bulk)}
+                disabled={selected.size === 0 || Boolean(updatingId)}
+              >
+                {!bulk ? <Download className="size-3.5" aria-hidden="true" /> : null}
+                Update selected{selected.size > 0 ? ` (${selected.size})` : ""}
+              </Button>
+            ) : null}
           </>
         }
       />
@@ -244,10 +246,10 @@ export default function UpdatesPage() {
               }}
               aria-label={allSelected ? "Deselect all updates" : "Select all updates"}
             />
-            <span className="text-[10px] font-medium text-muted">
+            <span className="text-[11px] font-medium text-muted">
               {selected.size > 0 ? `${selected.size} selected` : "Select all"}
             </span>
-            <span className="ml-auto text-[10px] text-muted/60">
+            <span className="ml-auto text-[11px] text-muted-soft">
               {formatNumber(all.length)} {all.length === 1 ? "update" : "updates"}
             </span>
           </div>
@@ -270,22 +272,22 @@ export default function UpdatesPage() {
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-[12.5px] font-medium text-text">
+                    <span className="truncate text-[12px] font-medium text-text">
                       {installation.skillName}
                     </span>
                     <Badge tone="neutral">{hostName(installation.host)}</Badge>
-                    <span className="font-mono text-[10px] text-muted">
+                    <span className="font-mono text-[11px] text-muted">
                       {installation.versionLabel ?? "unknown"}
-                      <span className="text-muted/40"> → </span>
+                      <span className="text-muted-soft"> → </span>
                       <span className="text-brand-soft">
                         {installation.latestVersionLabel ?? "latest"}
                       </span>
                     </span>
                   </div>
-                  <p className="mt-1 line-clamp-2 text-[10.5px] leading-relaxed text-muted">
+                  <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-muted">
                     {item.changeSummary || "No change summary was provided for this update."}
                   </p>
-                  <p className="mt-1 text-[9px] text-muted/55">
+                  <p className="mt-1 text-[11px] text-muted-soft">
                     Installed {formatRelative(installation.installedAt)} · last written{" "}
                     {formatRelative(installation.updatedAt)}
                   </p>
@@ -308,7 +310,7 @@ export default function UpdatesPage() {
       )}
 
       {all.length > 0 ? (
-        <p className="text-[10px] leading-relaxed text-muted/60">
+        <p className="text-[11px] leading-relaxed text-muted-soft">
           A failed update reports the host error and keeps the installation record available for
           inspection. Review the error before retrying.
         </p>

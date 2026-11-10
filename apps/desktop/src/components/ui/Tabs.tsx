@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 import { cx } from "../../lib/cx";
 
 export interface TabItem {
@@ -18,7 +18,29 @@ export interface TabsProps {
 export function Tabs({ tabs, value, onChange, className, trailing }: TabsProps) {
   return (
     <div className={cx("flex items-end justify-between gap-4 border-b border-line", className)}>
-      <div role="tablist" className="flex min-w-0 items-center gap-1 overflow-x-auto">
+      <div
+        role="tablist"
+        className="flex min-w-0 items-center gap-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        onKeyDown={(event) => {
+          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+          const tabs = Array.from(
+            event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
+          ).filter((tab) => !tab.disabled);
+          if (tabs.length === 0) return;
+          const current = tabs.findIndex((tab) => tab === document.activeElement);
+          const next =
+            event.key === "Home"
+              ? 0
+              : event.key === "End"
+                ? tabs.length - 1
+                : event.key === "ArrowRight"
+                  ? (current + 1 + tabs.length) % tabs.length
+                  : (current - 1 + tabs.length) % tabs.length;
+          event.preventDefault();
+          tabs[next]?.focus();
+          tabs[next]?.click();
+        }}
+      >
         {tabs.map((tab) => {
           const active = tab.id === value;
           return (
@@ -27,6 +49,7 @@ export function Tabs({ tabs, value, onChange, className, trailing }: TabsProps) 
               type="button"
               role="tab"
               aria-selected={active}
+              tabIndex={active ? 0 : -1}
               onClick={() => onChange(tab.id)}
               className={cx(
                 "relative flex h-9 shrink-0 items-center gap-2 rounded-t-md px-2.5 text-xs font-medium transition-colors",
@@ -37,7 +60,7 @@ export function Tabs({ tabs, value, onChange, className, trailing }: TabsProps) 
               {typeof tab.count === "number" ? (
                 <span
                   className={cx(
-                    "rounded px-1 py-0.5 text-[10px] tabular-nums",
+                    "rounded px-1 py-0.5 text-[11px] tabular-nums",
                     active ? "bg-brand/15 text-brand-soft" : "bg-text/[0.05] text-muted",
                   )}
                 >

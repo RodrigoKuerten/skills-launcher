@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import { APP_NAME } from "../lib/constants";
 import { buildHash, navigate, parseLocation, ROUTE_META, type RouteState } from "../lib/router";
@@ -89,7 +89,10 @@ function AppShell() {
               </Button>
             </div>
           ) : null}
-          <div className="mx-auto w-full max-w-[1240px] px-4 py-6 sm:px-6 xl:px-7">
+          <div
+            key={location.route}
+            className="mx-auto w-full max-w-[1240px] animate-fade-in px-4 py-6 sm:px-6 xl:px-7"
+          >
             <PageForRoute location={location} />
           </div>
         </main>
@@ -136,7 +139,7 @@ function Splash() {
             className="relative size-16 rounded-2xl shadow-[0_0_44px_rgba(47,107,255,0.28)] ring-1 ring-white/10"
           />
         </div>
-        <p className="mt-5 text-[9px] font-semibold uppercase tracking-[0.2em] text-brand-soft/80">
+        <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-soft/80">
           Skills Launcher
         </p>
         <h1 className="mt-2 text-lg font-semibold tracking-[-0.025em] text-text">
@@ -167,7 +170,7 @@ function FatalState({ message }: { message: string }) {
           The local catalog could not open
         </h1>
         <p className="mt-2 break-words text-xs leading-relaxed text-muted">{message}</p>
-        <p className="mt-3 text-[10px] leading-relaxed text-muted/60">
+        <p className="mt-3 text-[11px] leading-relaxed text-muted-soft">
           Skills Launcher reads its catalog through the Rust backend. If you are viewing the UI in a
           browser, start the desktop shell instead.
         </p>

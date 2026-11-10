@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
   CheckCircle2,
@@ -109,8 +109,8 @@ export default function ActivityPage() {
     <div className="space-y-5">
       <PageHeader
         eyebrow="System"
-        title="Activity"
-        description="A local journal of source syncs and agent operations. Entries come from the SQLite catalog, not a remote service."
+        title="Downloads"
+        description="Installs, updates, rollbacks and source sync history from the local SQLite catalog."
         meta={
           <span>
             {pluralize(operations.length, "recent operation")} ·{" "}
@@ -127,7 +127,7 @@ export default function ActivityPage() {
 
       <Tabs
         tabs={[
-          { id: "operations", label: "Operations", count: operations.length },
+          { id: "operations", label: "Installs & operations", count: operations.length },
           { id: "runs", label: "Source runs", count: allRuns.length },
         ]}
         value={tab}
@@ -179,7 +179,7 @@ export default function ActivityPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[11.5px] font-medium text-text">
+                      <span className="text-[12px] font-medium text-text">
                         {operationLabel(operation.kind)}
                       </span>
                       <Badge tone={operationTone(operation.status)} dot>
@@ -190,13 +190,13 @@ export default function ActivityPage() {
                       ) : null}
                     </div>
                     {operation.detail ? (
-                      <p className="mt-1 text-[10.5px] leading-relaxed text-muted">{operation.detail}</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-muted">{operation.detail}</p>
                     ) : null}
                   </div>
                   <time
                     dateTime={operation.createdAt}
                     title={formatDate(operation.createdAt)}
-                    className="shrink-0 pt-0.5 text-[9.5px] text-muted/60"
+                    className="shrink-0 pt-0.5 text-[11px] text-muted-soft"
                   >
                     {formatRelative(operation.createdAt)}
                   </time>
@@ -249,29 +249,29 @@ export default function ActivityPage() {
           {allRuns.map((run) => (
             <div key={run.id} className="border-b border-line/60 px-4 py-3 last:border-b-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11.5px] font-medium text-text">
+                <span className="text-[12px] font-medium text-text">
                   {sourceNames.get(run.sourceId) ?? "Removed source"}
                 </span>
                 <Badge tone={runTone(run.status)} dot>
                   {runStatusLabel(run.status)}
                 </Badge>
-                <span className="font-mono text-[9px] text-muted/55">{runDuration(run)}</span>
+                <span className="font-mono text-[11px] text-muted-soft">{runDuration(run)}</span>
                 <time
                   dateTime={run.startedAt}
                   title={formatDate(run.startedAt)}
-                  className="ml-auto text-[9.5px] text-muted/60"
+                  className="ml-auto text-[11px] text-muted-soft"
                 >
                   {formatRelative(run.startedAt)}
                 </time>
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] text-muted">
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted">
                 <Count label="found" value={run.found} />
                 <Count label="new" value={run.created} tone="brand" />
                 <Count label="updated" value={run.updated} tone="cyan" />
                 <Count label="unchanged" value={run.unchanged} />
                 <Count label="blocked" value={run.blocked} tone={run.blocked > 0 ? "danger" : undefined} />
                 {run.finishedAt ? (
-                  <span className="inline-flex items-center gap-1 text-muted/60">
+                  <span className="inline-flex items-center gap-1 text-muted-soft">
                     <CheckCircle2 className="size-3" aria-hidden="true" />
                     Finished {formatRelative(run.finishedAt)}
                   </span>
@@ -283,7 +283,7 @@ export default function ActivityPage() {
                 )}
               </div>
               {run.error ? (
-                <p className="mt-2 flex items-start gap-1.5 text-[10px] leading-relaxed text-danger/85">
+                <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-relaxed text-danger/85">
                   <XCircle className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
                   {run.error}
                 </p>
@@ -309,13 +309,13 @@ function Count({
     <span className="inline-flex items-baseline gap-1">
       <span
         className={cx(
-          "font-mono text-[10.5px] tabular-nums",
+          "font-mono text-[11px] tabular-nums",
           tone === "brand" ? "text-brand-soft" : tone === "cyan" ? "text-cyan" : tone === "danger" ? "text-danger" : "text-text/80",
         )}
       >
         {formatNumber(value)}
       </span>
-      <span className="text-muted/55">{label}</span>
+      <span className="text-muted-soft">{label}</span>
     </span>
   );
 }

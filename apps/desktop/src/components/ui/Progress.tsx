@@ -1,4 +1,4 @@
-import { cx } from "../../lib/cx";
+﻿import { cx } from "../../lib/cx";
 
 export interface ProgressProps {
   value: number;
@@ -29,7 +29,7 @@ export function Progress({
   return (
     <div className={cx("space-y-1.5", className)}>
       {label || showValue ? (
-        <div className="flex items-center justify-between gap-3 text-[10px]">
+        <div className="flex items-center justify-between gap-3 text-[11px]">
           {label ? <span className="text-muted">{label}</span> : <span />}
           {showValue ? (
             <span className="font-mono tabular-nums text-muted">

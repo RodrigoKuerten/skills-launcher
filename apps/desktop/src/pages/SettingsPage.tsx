@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+﻿import { useEffect, useState, type FormEvent } from "react";
 import {
   BadgeCheck,
   BookOpen,
@@ -117,7 +117,7 @@ export default function SettingsPage() {
         <section className="rounded-[14px] border border-line bg-surface/45">
           <div className="border-b border-line/70 px-4 py-3">
             <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-text">Appearance</h2>
-            <p className="mt-0.5 text-[10px] text-muted">The interface defaults to the dark palette.</p>
+            <p className="mt-0.5 text-[11px] text-muted">The interface defaults to the dark palette.</p>
           </div>
           <div className="grid gap-3 p-4 sm:grid-cols-2" role="radiogroup" aria-label="Interface theme">
             {(
@@ -153,11 +153,11 @@ export default function SettingsPage() {
                     <Icon className="size-4" aria-hidden="true" />
                   </span>
                   <span>
-                    <span className="flex items-center gap-2 text-[11.5px] font-medium text-text">
+                    <span className="flex items-center gap-2 text-[12px] font-medium text-text">
                       {option.label}
                       {selected ? <Badge tone="brand">Selected</Badge> : null}
                     </span>
-                    <span className="mt-0.5 block text-[10px] leading-relaxed text-muted">
+                    <span className="mt-0.5 block text-[11px] leading-relaxed text-muted">
                       {option.description}
                     </span>
                   </span>
@@ -165,19 +165,19 @@ export default function SettingsPage() {
               );
             })}
           </div>
-          <p className="px-4 pb-3 text-[10px] text-muted/55">Theme changes apply after saving.</p>
+          <p className="px-4 pb-3 text-[11px] text-muted-soft">Theme changes apply after saving.</p>
         </section>
 
         <section className="rounded-[14px] border border-line bg-surface/45">
           <div className="border-b border-line/70 px-4 py-3">
             <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-text">Catalog behavior</h2>
-            <p className="mt-0.5 text-[10px] text-muted">Sync preferences for the local source engine.</p>
+            <p className="mt-0.5 text-[11px] text-muted">Sync preferences for the local source engine.</p>
           </div>
           <div className="space-y-4 p-4">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-[11px] font-medium text-text">Auto-sync sources</p>
-                <p className="mt-0.5 text-[10px] leading-relaxed text-muted">
+                <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
                   Allow the backend to refresh enabled sources on an interval.
                 </p>
               </div>
@@ -197,6 +197,7 @@ export default function SettingsPage() {
                   max={10080}
                   value={intervalText}
                   onChange={(event) => setIntervalText(event.target.value)}
+                  disabled={!autoSync}
                 />
               </Field>
             </div>
@@ -209,7 +210,7 @@ export default function SettingsPage() {
               GitHub access
               {tokenSet ? <Badge tone="ok">Session token set</Badge> : <Badge tone="neutral">No token</Badge>}
             </h2>
-            <p className="mt-0.5 text-[10px] text-muted">
+            <p className="mt-0.5 text-[11px] text-muted">
               Raises GitHub rate limits for source syncs. Optional for public repositories.
             </p>
           </div>
@@ -240,7 +241,7 @@ export default function SettingsPage() {
                   Clear session token
                 </Button>
               ) : null}
-              <p className="text-[10px] leading-relaxed text-muted/55">
+              <p className="text-[11px] leading-relaxed text-muted-soft">
                 The token is passed to source adapters in memory and is never displayed again.
               </p>
             </div>
@@ -254,7 +255,7 @@ export default function SettingsPage() {
         ) : null}
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[13px] border border-line bg-surface/30 px-4 py-3">
-          <p className="flex items-start gap-2 text-[10px] leading-relaxed text-muted/60">
+          <p className="flex items-start gap-2 text-[11px] leading-relaxed text-muted">
             <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
             Settings apply to this local catalog. No account is required and no settings are uploaded.
           </p>
@@ -274,14 +275,14 @@ export default function SettingsPage() {
           />
           <div className="min-w-0 flex-1">
             <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-text">{APP_NAME}</h2>
-            <p className="mt-0.5 text-[10px] text-muted">
+            <p className="mt-0.5 text-[11px] text-muted">
               Version {APP_VERSION} · Tauri 2 · React 19 · local SQLite
             </p>
-            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+            <p className="mt-2 text-[11px] leading-relaxed text-muted">
               A desktop-first universal skills manager. Sources, scan findings and installation
               provenance live in the local catalog; the UI only talks to the Rust backend.
             </p>
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px]">
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px]">
               <ExternalLink href="https://code.claude.com/docs/en/skills">
                 <BookOpen className="mr-0.5 inline size-3" aria-hidden="true" />
                 Agent Skills docs
@@ -304,7 +305,7 @@ export default function SettingsPage() {
               </Badge>
               <Badge tone="neutral">Application code: MIT</Badge>
             </div>
-            <p className="mt-2 text-[9.5px] leading-relaxed text-muted/55">
+            <p className="mt-2 text-[11px] leading-relaxed text-muted-soft">
               Imported skills retain their original licenses and attribution. Check each skill's
               provenance before installing or redistributing it.
             </p>

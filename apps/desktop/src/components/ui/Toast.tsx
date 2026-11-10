@@ -44,6 +44,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const nextId = useRef(1);
   const timers = useRef(new Map<number, number>());
+  const lastKey = useRef<string | null>(null);
 
   const dismiss = useCallback((id: number) => {
     const timer = timers.current.get(id);
@@ -54,9 +55,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const push = useCallback(
     (kind: ToastKind, title: string, message?: string) => {
+      const key = `${kind}:${title}:${message ?? ""}`;
+      if (lastKey.current === key) return;
+      lastKey.current = key;
       const id = nextId.current++;
       setToasts((current) => [...current.slice(-3), { id, kind, title, message }]);
-      const timeout = window.setTimeout(() => dismiss(id), kind === "error" ? 7200 : 4200);
+      const timeout = window.setTimeout(() => {
+        lastKey.current = null;
+        dismiss(id);
+      }, kind === "error" ? 7200 : 4200);
       timers.current.set(id, timeout);
     },
     [dismiss],

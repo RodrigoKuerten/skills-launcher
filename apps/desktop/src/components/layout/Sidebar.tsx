@@ -1,5 +1,5 @@
-import {
-  Activity,
+﻿import {
+  ArrowDownToLine,
   ArrowUpCircle,
   Bot,
   Compass,
@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { APP_VERSION } from "../../lib/constants";
 import { cx } from "../../lib/cx";
-import { formatRelative } from "../../lib/format";
 import { navigate, type Route } from "../../lib/router";
 import { useAppData } from "../../app/app-context";
 import { Tooltip } from "../ui/Tooltip";
@@ -27,7 +26,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Discover",
     items: [
-      { route: "home", label: "Overview", icon: House },
+      { route: "home", label: "Home", icon: House },
       { route: "explore", label: "Explore", icon: Compass },
       { route: "categories", label: "Categories", icon: LayoutGrid },
     ],
@@ -44,7 +43,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
     label: "System",
     items: [
       { route: "sources", label: "Sources", icon: FolderGit2 },
-      { route: "activity", label: "Activity", icon: Activity },
+      { route: "activity", label: "Downloads", icon: ArrowDownToLine },
       { route: "settings", label: "Settings", icon: Settings },
     ],
   },
@@ -79,7 +78,7 @@ export function Sidebar({ route }: SidebarProps) {
             <span className="block truncate text-[13px] font-semibold tracking-[-0.015em] text-text">
               Skills Launcher
             </span>
-            <span className="mt-0.5 block text-[9px] font-medium uppercase tracking-[0.16em] text-muted/70">
+            <span className="mt-0.5 block text-[11px] font-medium uppercase tracking-[0.16em] text-muted-soft">
               Local catalog
             </span>
           </span>
@@ -90,7 +89,7 @@ export function Sidebar({ route }: SidebarProps) {
         <div className="space-y-5">
           {NAV_GROUPS.map((group) => (
             <div key={group.label}>
-              <p className="mb-1.5 hidden px-2.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted/50 lg:block">
+              <p className="mb-1.5 hidden px-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-soft lg:block">
                 {group.label}
               </p>
               <div className="space-y-0.5">
@@ -111,7 +110,7 @@ export function Sidebar({ route }: SidebarProps) {
                         type="button"
                         onClick={() => navigate(item.route)}
                         aria-current={active ? "page" : undefined}
-                        title={item.label}
+                        aria-label={item.label}
                         className={cx(
                           "group/item relative flex h-9 w-full items-center justify-center gap-2.5 rounded-lg px-2.5 text-xs font-medium transition-colors duration-150 lg:justify-start",
                           active
@@ -128,13 +127,13 @@ export function Sidebar({ route }: SidebarProps) {
                         <Icon
                           className={cx(
                             "size-4 shrink-0 transition-colors",
-                            active ? "text-brand-soft" : "text-muted/75 group-hover/item:text-text",
+                            active ? "text-brand-soft" : "text-muted-soft group-hover/item:text-text",
                           )}
                           aria-hidden="true"
                         />
                         <span className="hidden lg:inline">{item.label}</span>
                         {badge ? (
-                          <span className="ml-auto hidden rounded bg-brand/15 px-1.5 py-0.5 text-[9px] font-semibold tabular-nums text-brand-soft lg:inline">
+                          <span className="ml-auto hidden rounded bg-brand/15 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-brand-soft lg:inline">
                             {badge}
                           </span>
                         ) : null}
@@ -154,11 +153,10 @@ export function Sidebar({ route }: SidebarProps) {
             type="button"
             onClick={() => navigate("activity")}
             className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-line bg-elevated/30 px-2.5 py-2 text-left transition-colors hover:border-brand/25 hover:bg-elevated/55 lg:justify-start"
-            aria-label={issueCount ? `${issueCount} ${issueCount === 1 ? "source needs" : "sources need"} attention` : "Open activity"}
-            title="Activity"
+            aria-label={issueCount ? `${issueCount} ${issueCount === 1 ? "source needs" : "sources need"} attention` : "Open Downloads"}
           >
             <span className="relative shrink-0 lg:hidden">
-              <Activity className="size-4 text-muted" aria-hidden="true" />
+              <ArrowDownToLine className="size-4 text-muted" aria-hidden="true" />
               <span
                 className={cx(
                   "absolute -right-0.5 -top-0.5 size-1.5 rounded-full ring-2 ring-surface",
@@ -175,20 +173,18 @@ export function Sidebar({ route }: SidebarProps) {
               aria-hidden="true"
             />
             <span className="hidden min-w-0 lg:block">
-              <span className="block truncate text-[10px] font-medium text-text/85">
+              <span className="block truncate text-[11px] font-medium text-text/85">
                 {issueCount
                   ? `${issueCount} ${issueCount === 1 ? "source needs" : "sources need"} attention`
-                  : lastSync
-                    ? `Synced ${formatRelative(lastSync)}`
-                    : "Awaiting first sync"}
+                  : "Local catalog ready"}
               </span>
-              <span className="mt-0.5 block truncate text-[9px] text-muted/60">
+              <span className="mt-0.5 block truncate text-[11px] text-muted-soft">
                 {sources.length} {sources.length === 1 ? "source" : "sources"} · local SQLite
               </span>
             </span>
           </button>
         </Tooltip>
-        <p className="mt-2 hidden text-center text-[9px] tracking-[0.08em] text-muted/40 lg:block">
+        <p className="mt-2 hidden text-center text-[11px] tracking-[0.08em] text-muted-soft lg:block">
           v{APP_VERSION}
         </p>
       </div>

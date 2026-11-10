@@ -522,6 +522,11 @@ impl Db {
                 [],
                 |row| row.get(0),
             )?;
+            let quarantined_skills = conn.query_row(
+                "SELECT COUNT(*) FROM skills s JOIN sources src ON src.id=s.source_id WHERE src.deleted_at IS NULL AND s.status='QUARANTINED'",
+                [],
+                |row| row.get(0),
+            )?;
             let installed = conn.query_row(
                 "SELECT COUNT(*) FROM installations WHERE status='INSTALLED'",
                 [],
@@ -542,6 +547,7 @@ impl Db {
                 enabled_sources,
                 skills,
                 blocked_skills,
+                quarantined_skills,
                 installed,
                 updates,
                 categories,

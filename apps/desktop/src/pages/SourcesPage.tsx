@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { FolderGit2, Info, SearchX } from "lucide-react";
 import { useAppData } from "../app/app-context";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -6,7 +6,6 @@ import { PageHeader } from "../components/layout/PageHeader";
 import { SourceRow } from "../components/SourceRow";
 import { SourceFormDialog } from "../components/sources/SourceFormDialog";
 import { SourceTransferDialog } from "../components/sources/SourceTransferDialog";
-import { SyncAllButton } from "../components/SyncAllButton";
 import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
 import { SearchInput } from "../components/ui/Input";
@@ -111,7 +110,6 @@ export default function SourcesPage() {
         }
         actions={
           <>
-            <SyncAllButton variant="secondary" size="sm" />
             <Button variant="secondary" size="sm" onClick={() => setTransferOpen(true)}>
               Import / export
             </Button>
@@ -192,7 +190,7 @@ export default function SourcesPage() {
         </div>
       )}
 
-      <div className="flex items-start gap-2 rounded-[13px] border border-line bg-surface/30 px-4 py-3 text-[10px] leading-relaxed text-muted/65">
+      <div className="flex items-start gap-2 rounded-[13px] border border-line bg-surface/30 px-4 py-3 text-[11px] leading-relaxed text-muted-soft">
         <Info className="mt-0.5 size-3.5 shrink-0 text-brand-soft/60" aria-hidden="true" />
         Source deletion is a soft delete: the record stops appearing in the catalog, while skills
         already installed into agents stay where they are. Remote sync errors are explicit and never
@@ -202,6 +200,7 @@ export default function SourcesPage() {
       {formSeed ? (
         <SourceFormDialog
           source={formSeed.source}
+          defaultIntervalMinutes={bootstrap.settings.autoSyncIntervalMinutes}
           onClose={() => setFormSeed(null)}
           onSaved={() => void refresh()}
         />
@@ -230,7 +229,7 @@ export default function SourcesPage() {
             source stops syncing and disappears from the Sources list.
           </p>
           {deleteTarget ? (
-            <p className="break-all rounded-lg border border-line bg-canvas/40 px-3 py-2 font-mono text-[9.5px] text-muted/70">
+            <p className="break-all rounded-lg border border-line bg-canvas/40 px-3 py-2 font-mono text-[11px] text-muted-soft">
               {deleteTarget.url}
             </p>
           ) : null}

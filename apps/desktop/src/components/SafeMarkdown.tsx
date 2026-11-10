@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+﻿import { useMemo, type ReactNode } from "react";
 import { cx } from "../lib/cx";
 
 interface SafeMarkdownProps {
@@ -91,7 +91,7 @@ export function SafeMarkdown({ source, className, maxChars = 160_000 }: SafeMark
         }
         output.push(
           <div key={key++} className="overflow-x-auto rounded-lg border border-line">
-            <table className="w-full border-collapse text-left text-[10.5px]">
+            <table className="w-full border-collapse text-left text-[11px]">
               <thead className="bg-elevated/55 text-muted">
                 <tr>
                   {headers.map((header, column) => (
@@ -129,7 +129,7 @@ export function SafeMarkdown({ source, className, maxChars = 160_000 }: SafeMark
         output.push(
           <pre
             key={key++}
-            className="overflow-x-auto rounded-lg border border-line bg-canvas/55 p-3 font-mono text-[10.5px] leading-relaxed text-text/85"
+            className="overflow-x-auto rounded-lg border border-line bg-canvas/55 p-3 font-mono text-[11px] leading-relaxed text-text/85"
           >
             <code>{code.join("\n")}</code>
           </pre>,
@@ -169,7 +169,7 @@ export function SafeMarkdown({ source, className, maxChars = 160_000 }: SafeMark
           index += 1;
         }
         output.push(
-          <ul key={key++} className="ml-4 list-disc space-y-1 text-[11.5px] leading-relaxed text-muted marker:text-brand-soft/70">
+          <ul key={key++} className="ml-4 list-disc space-y-1 text-[12px] leading-relaxed text-muted marker:text-brand-soft/70">
             {items.map((item, itemIndex) => (
               <li key={itemIndex}>{inline(item)}</li>
             ))}
@@ -185,7 +185,7 @@ export function SafeMarkdown({ source, className, maxChars = 160_000 }: SafeMark
           index += 1;
         }
         output.push(
-          <ol key={key++} className="ml-4 list-decimal space-y-1 text-[11.5px] leading-relaxed text-muted marker:text-brand-soft/70">
+          <ol key={key++} className="ml-4 list-decimal space-y-1 text-[12px] leading-relaxed text-muted marker:text-brand-soft/70">
             {items.map((item, itemIndex) => (
               <li key={itemIndex}>{inline(item)}</li>
             ))}
@@ -203,7 +203,7 @@ export function SafeMarkdown({ source, className, maxChars = 160_000 }: SafeMark
         output.push(
           <blockquote
             key={key++}
-            className="border-l-2 border-brand/35 pl-3 text-[11.5px] italic leading-relaxed text-muted"
+            className="border-l-2 border-brand/35 pl-3 text-[12px] italic leading-relaxed text-muted"
           >
             {inline(quote.join(" "))}
           </blockquote>,
@@ -221,7 +221,7 @@ export function SafeMarkdown({ source, className, maxChars = 160_000 }: SafeMark
         index += 1;
       }
       output.push(
-        <p key={key++} className="text-[11.5px] leading-relaxed text-muted">
+        <p key={key++} className="text-[12px] leading-relaxed text-muted">
           {inline(paragraph.join(" "))}
         </p>,
       );
@@ -231,14 +231,14 @@ export function SafeMarkdown({ source, className, maxChars = 160_000 }: SafeMark
   }, [text]);
 
   if (!text.trim()) {
-    return <p className={cx("text-xs text-muted/70", className)}>No README was captured for this source.</p>;
+    return <p className={cx("text-xs text-muted-soft", className)}>No README was captured for this source.</p>;
   }
 
   return (
     <div className={cx("space-y-2.5", className)}>
       {blocks}
       {truncated ? (
-        <p className="border-t border-line pt-2 text-[10px] text-muted/60">
+        <p className="border-t border-line pt-2 text-[11px] text-muted-soft">
           README preview truncated at {maxChars.toLocaleString()} characters.
         </p>
       ) : null}

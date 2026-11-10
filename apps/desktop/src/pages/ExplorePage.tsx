@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Compass, SearchX, SlidersHorizontal, TriangleAlert } from "lucide-react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { Compass, SearchX, TriangleAlert, X } from "lucide-react";
 import { useAppData } from "../app/app-context";
 import { PageHeader } from "../components/layout/PageHeader";
 import { Pagination } from "../components/Pagination";
@@ -103,7 +103,22 @@ export default function ExplorePage({ params }: ExplorePageProps) {
   const categoryNames = new Map(bootstrap.categories.map((item) => [item.slug, item.name]));
   const activeFilters = [debouncedQ, category, sourceId, host, trust, risk].filter(Boolean).length;
   const hasFilters = activeFilters > 0;
-  const hiddenBlocked = !includeBlocked && stats.blockedSkills > 0;
+  const hiddenBlocked = !includeBlocked && stats.quarantinedSkills > 0;
+  const chips = [
+    category
+      ? { label: categoryNames.get(category) ?? category, clear: () => setCategory("") }
+      : null,
+    sourceId
+      ? { label: sources.find((source) => source.id === sourceId)?.name ?? "Source", clear: () => setSourceId("") }
+      : null,
+    host ? { label: HOSTS.find((item) => item.id === host)?.name ?? host, clear: () => setHost("") } : null,
+    trust
+      ? { label: TRUST_LEVELS.find((item) => item.value === trust)?.label ?? trust, clear: () => setTrust("") }
+      : null,
+    risk
+      ? { label: RISK_LEVELS.find((item) => item.value === risk)?.label ?? risk, clear: () => setRisk("") }
+      : null,
+  ].filter((chip): chip is { label: string; clear: () => void } => chip !== null);
   const catalogEmpty = data?.total === 0 && !hasFilters && stats.skills === 0;
 
   const reset = () => {
@@ -130,7 +145,6 @@ export default function ExplorePage({ params }: ExplorePageProps) {
             {pluralize(stats.skills, "skill")} indexed · {pluralize(sources.length, "source")}
           </span>
         }
-        actions={<SyncAllButton variant="secondary" size="sm" label="Sync sources" />}
       />
 
       <section className="rounded-[14px] border border-line bg-surface/45 p-3">
@@ -151,13 +165,13 @@ export default function ExplorePage({ params }: ExplorePageProps) {
               <Switch
                 checked={includeBlocked}
                 onCheckedChange={setIncludeBlocked}
-                label="Include quarantined and blocked skills"
+                label="Include quarantined skills"
               />
               <span className="text-[11px] text-muted">
-                Include blocked
-                {stats.blockedSkills > 0 ? (
-                  <span className="ml-1 text-[10px] tabular-nums text-muted/60">
-                    ({stats.blockedSkills})
+                Include quarantined
+                {stats.quarantinedSkills > 0 ? (
+                  <span className="ml-1 text-[11px] tabular-nums text-muted-soft">
+                    ({stats.quarantinedSkills})
                   </span>
                 ) : null}
               </span>
@@ -173,9 +187,6 @@ export default function ExplorePage({ params }: ExplorePageProps) {
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="flex size-10 items-center justify-center rounded-[10px] border border-line bg-surface/40 text-muted/60">
-            <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-          </span>
           <Select
             value={category}
             onChange={(event) => setCategory(event.target.value)}
@@ -225,18 +236,33 @@ export default function ExplorePage({ params }: ExplorePageProps) {
             </Button>
           ) : null}
         </div>
+        {chips.length > 0 ? (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {chips.map((chip) => (
+              <button
+                key={chip.label}
+                type="button"
+                onClick={chip.clear}
+                className="inline-flex h-6 items-center gap-1 rounded-md border border-line bg-elevated/50 px-2 text-[11px] text-muted-soft transition-colors hover:border-brand/30 hover:text-text"
+              >
+                {chip.label}
+                <X className="size-3" aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        ) : null}
       </section>
 
-      <div className="flex min-h-5 items-center justify-between gap-3">
+      <div id="explore-results" className="flex min-h-5 items-center justify-between gap-3">
         <p className="text-[11px] text-muted" aria-live="polite">
           {loading && !data
             ? "Reading the catalog…"
             : data
-              ? `${formatNumber(data.total)} ${data.total === 1 ? "skill" : "skills"}${hasFilters ? " matching these filters" : ""}`
+              ? `${formatNumber(data.total)} ${data.total === 1 ? "skill" : "skills"}${hasFilters ? " matching these filters" : ` of ${formatNumber(stats.skills)}`}`
               : ""}
         </p>
         {loading && data ? (
-          <span className="flex items-center gap-1.5 text-[10px] text-muted">
+          <span className="flex items-center gap-1.5 text-[11px] text-muted">
             <span className="size-1.5 animate-soft-pulse rounded-full bg-brand" aria-hidden="true" />
             Updating results
           </span>
@@ -288,7 +314,7 @@ export default function ExplorePage({ params }: ExplorePageProps) {
             }
             hint={
               hiddenBlocked
-                ? `${formatNumber(stats.blockedSkills)} quarantined or high-risk skills are hidden. Enable “Include blocked” to review them.`
+                ? `${formatNumber(stats.quarantinedSkills)} quarantined skills are hidden. Enable “Include quarantined” to review them.`
                 : undefined
             }
           />
@@ -310,7 +336,15 @@ export default function ExplorePage({ params }: ExplorePageProps) {
             ))}
           </div>
           <div className="border-t border-line pt-4">
-            <Pagination page={data.page} pages={data.pages} total={data.total} onPageChange={setPage} />
+            <Pagination
+              page={data.page}
+              pages={data.pages}
+              total={data.total}
+              onPageChange={(next) => {
+                setPage(next);
+                document.getElementById("explore-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            />
           </div>
         </>
       ) : null}

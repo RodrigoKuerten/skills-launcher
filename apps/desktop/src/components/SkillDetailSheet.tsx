@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Check,
@@ -59,6 +59,7 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
   const [installing, setInstalling] = useState(false);
   const detailRequest = useRef(0);
   const agentRequest = useRef(0);
+  const selectionInitialized = useRef(false);
 
   const loadDetail = useCallback(async (id: string) => {
     const request = ++detailRequest.current;
@@ -102,16 +103,25 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
     setAllowRisky(false);
     setAgents([]);
     setAgentsError(null);
+    selectionInitialized.current = false;
     void loadDetail(skillId);
     void loadAgents();
   }, [skillId, loadDetail, loadAgents]);
 
   useEffect(() => {
     if (agents.length === 0) return;
-    setSelectedHosts(
-      agents
-        .filter((agent) => agent.detected && agent.supportsAgentSkills)
-        .map((agent) => agent.host),
+    if (!selectionInitialized.current) {
+      const first = agents.find((agent) => agent.detected && agent.supportsAgentSkills);
+      setSelectedHosts(first ? [first.host] : []);
+      selectionInitialized.current = true;
+      return;
+    }
+    setSelectedHosts((current) =>
+      current.filter((host) =>
+        agents.some(
+          (agent) => agent.host === host && agent.detected && agent.supportsAgentSkills,
+        ),
+      ),
     );
   }, [agents]);
 
@@ -119,12 +129,27 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
   const categoryNames = new Map((bootstrap?.categories ?? []).map((item) => [item.slug, item.name]));
   const latest = detail?.latestVersion ?? null;
   const activeInstallations =
-    detail?.installations.filter((installation) => installation.status !== "REMOVED") ?? [];
+    detail?.installations.filter((installation) => installation.status === "INSTALLED") ?? [];
   const quarantined =
     detail?.status === "QUARANTINED" || latest?.status === "QUARANTINED";
   const risky = detail?.riskLevel === "HIGH" || detail?.riskLevel === "CRITICAL";
   const detected = agents.filter((agent) => agent.detected);
   const installable = detected.filter((agent) => agent.supportsAgentSkills);
+  const selectedAgentNames = selectedHosts.map((host) => {
+    const agent = agents.find((candidate) => candidate.host === host);
+    return agent?.name || hostName(host);
+  });
+  const selectedLabel =
+    selectedAgentNames.length <= 2
+      ? selectedAgentNames.join(", ")
+      : `${selectedAgentNames[0]} +${selectedAgentNames.length - 1}`;
+  const selectedInstalled =
+    selectedHosts.length > 0 &&
+    selectedHosts.every((host) =>
+      activeInstallations.some(
+        (installation) => installation.host === host && installation.status === "INSTALLED",
+      ),
+    );
   const canInstall =
     Boolean(detail && latest && !quarantined && selectedHosts.length > 0) &&
     (!risky || allowRisky);
@@ -136,6 +161,7 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
         : "danger";
 
   const toggleHost = (host: string, checked: boolean) => {
+    selectionInitialized.current = true;
     setSelectedHosts((current) =>
       checked ? [...new Set([...current, host])] : current.filter((item) => item !== host),
     );
@@ -192,25 +218,23 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Close
           </Button>
+          {activeInstallations.length > 0 ? (
+            <Button variant="ghost" onClick={() => navigate("library")}>
+              Open Library
+            </Button>
+          ) : null}
           <Button
             variant="primary"
             onClick={() => void install()}
             loading={installing}
             disabled={!canInstall}
-            title={
-              quarantined
-                ? "Quarantined skills cannot be installed"
-                : selectedHosts.length === 0
-                  ? "Detect an agent first"
-                  : undefined
-            }
           >
             <Download className="size-3.5" aria-hidden="true" />
             {quarantined
               ? "Install blocked"
               : selectedHosts.length > 0
-                ? `Install on ${selectedHosts.length} ${selectedHosts.length === 1 ? "agent" : "agents"}`
-                : "Install skill"}
+                ? `${selectedInstalled ? "Reinstall" : "Install"} on ${selectedLabel}`
+                : "Select an agent"}
           </Button>
         </>
       }
@@ -268,7 +292,7 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-xs font-semibold text-text">Install targets</h3>
-                <p className="mt-0.5 text-[10px] text-muted">
+                <p className="mt-0.5 text-[11px] text-muted">
                   Only agents with runtime evidence are listed. A folder alone is not detection.
                 </p>
               </div>
@@ -341,12 +365,12 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
                         <span className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-text">
                           {agent.name || hostName(agent.host)}
                           {agent.version ? (
-                            <span className="font-mono text-[9px] font-normal text-muted">{agent.version}</span>
+                            <span className="font-mono text-[11px] font-normal text-muted">{agent.version}</span>
                           ) : null}
                           {agent.autoInstall ? <Badge tone="brand">Auto-update</Badge> : null}
                         </span>
                         {agent.skillsPath ? (
-                          <span className="mt-0.5 block truncate font-mono text-[9px] text-muted/60" title={agent.skillsPath}>
+                          <span className="mt-0.5 block truncate font-mono text-[11px] text-muted-soft" title={agent.skillsPath}>
                             {truncateMiddle(agent.skillsPath, 72)}
                           </span>
                         ) : null}
@@ -357,8 +381,28 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
               </div>
             )}
 
+            {activeInstallations.length > 0 ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-ok/20 bg-ok/[0.045] px-3 py-2.5 text-[11px] text-muted">
+                <Badge tone="ok">Installed</Badge>
+                <span>
+                  On {activeInstallations.map((installation) => hostName(installation.host)).join(", ")}
+                  {activeInstallations[0]?.versionLabel
+                    ? ` · ${activeInstallations[0].versionLabel}`
+                    : ""}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto h-7"
+                  onClick={() => navigate("library")}
+                >
+                  Open Library
+                </Button>
+              </div>
+            ) : null}
+
             {risky && !quarantined && latest ? (
-              <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-lg border border-warn/25 bg-warn/[0.055] px-3 py-2.5">
+              <div className="mt-3 flex items-start gap-3 rounded-lg border border-warn/25 bg-warn/[0.055] px-3 py-2.5">
                 <Switch
                   checked={allowRisky}
                   onCheckedChange={setAllowRisky}
@@ -367,12 +411,12 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
                 />
                 <span>
                   <span className="block text-[11px] font-medium text-warn">Allow high-risk install</span>
-                  <span className="mt-0.5 block text-[10px] leading-relaxed text-muted">
+                  <span className="mt-0.5 block text-[11px] leading-relaxed text-muted">
                     This version has a {detail.riskLevel.toLowerCase()} risk rating. Read the findings
-                    below before continuing. The backend may still refuse the install.
+                    below before continuing.
                   </span>
                 </span>
-              </label>
+              </div>
             ) : null}
           </section>
 
@@ -400,7 +444,7 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
               <Meta label="Source" value={detail.sourceName} />
               <Meta label="Updated" value={formatRelative(detail.updatedAt)} />
               <div className="col-span-2 min-w-0 border-t border-line/60 pt-3">
-                <dt className="text-[9px] font-medium uppercase tracking-[0.1em] text-muted/60">Repository</dt>
+                <dt className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-soft">Repository</dt>
                 <dd className="mt-1 min-w-0 text-[11px]">
                   {detail.repositoryUrl ? (
                     <ExternalLink href={detail.repositoryUrl} className="text-[11px]">
@@ -435,7 +479,7 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
                     tone={scoreTone}
                   />
                   {latest.findings.length === 0 ? (
-                    <p className="flex items-start gap-2 text-[10.5px] leading-relaxed text-muted">
+                    <p className="flex items-start gap-2 text-[11px] leading-relaxed text-muted">
                       <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-ok" aria-hidden="true" />
                       No scan findings were reported for the latest version.
                     </p>
@@ -445,10 +489,10 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
                         <li key={`${finding.code}-${index}`} className="flex items-start gap-2">
                           <RiskBadge risk={finding.severity} className="mt-0.5 shrink-0" />
                           <span className="min-w-0">
-                            <span className="block text-[10.5px] leading-relaxed text-muted">
+                            <span className="block text-[11px] leading-relaxed text-muted">
                               {finding.message}
                             </span>
-                            <span className="mt-0.5 block font-mono text-[9px] text-muted/55">
+                            <span className="mt-0.5 block font-mono text-[11px] text-muted-soft">
                               {finding.code}
                               {finding.file ? ` · ${finding.file}` : ""}
                             </span>
@@ -459,7 +503,7 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
                   )}
                 </div>
               ) : (
-                <p className="rounded-xl border border-line bg-surface/40 p-3 text-[10.5px] text-muted">
+                <p className="rounded-xl border border-line bg-surface/40 p-3 text-[11px] text-muted">
                   No version has been scanned yet.
                 </p>
               )}
@@ -472,7 +516,7 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
               </div>
               <div className="rounded-xl border border-line bg-surface/40 p-3">
                 {detail.hosts.length === 0 ? (
-                  <p className="text-[10.5px] leading-relaxed text-muted">
+                  <p className="text-[11px] leading-relaxed text-muted">
                     Host compatibility has not been scanned for this skill.
                   </p>
                 ) : (
@@ -486,7 +530,7 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
                           )}
                           aria-hidden="true"
                         />
-                        <span className="truncate text-[10.5px] text-muted">{hostName(host.host)}</span>
+                        <span className="truncate text-[11px] text-muted">{hostName(host.host)}</span>
                       </li>
                     ))}
                   </ul>
@@ -503,7 +547,7 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
                 Safe read-only
               </Badge>
             </div>
-            <div className="max-h-[420px] overflow-y-auto rounded-xl border border-line bg-canvas/35 p-4">
+            <div className="rounded-xl border border-line bg-canvas/35 p-4">
               <SafeMarkdown source={detail.readme} />
             </div>
           </section>
@@ -511,17 +555,17 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
           <section>
             <div className="mb-2 flex items-center justify-between gap-2">
               <h3 className="text-xs font-semibold text-text">Versions</h3>
-              <span className="text-[10px] text-muted">{detail.versions.length}</span>
+              <span className="text-[11px] text-muted">{detail.versions.length}</span>
             </div>
             {detail.versions.length === 0 ? (
-              <p className="rounded-xl border border-line bg-surface/40 p-3 text-[10.5px] text-muted">
+              <p className="rounded-xl border border-line bg-surface/40 p-3 text-[11px] text-muted">
                 No versions have been imported.
               </p>
             ) : (
               <div className="max-h-52 divide-y divide-line/60 overflow-y-auto rounded-xl border border-line bg-surface/40">
                 {detail.versions.map((version) => (
                   <div key={version.id} className="flex flex-wrap items-center gap-2 px-3 py-2.5">
-                    <span className="font-mono text-[10.5px] text-text">
+                    <span className="font-mono text-[11px] text-text">
                       {version.versionLabel || version.id.slice(0, 8)}
                     </span>
                     <Badge tone="neutral">
@@ -530,7 +574,7 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
                     <RiskBadge risk={version.riskLevel} />
                     {version.status === "QUARANTINED" ? <Badge tone="danger">Quarantined</Badge> : null}
                     {version.id === latest?.id ? <Badge tone="brand">Latest</Badge> : null}
-                    <span className="ml-auto text-[9px] text-muted/60">
+                    <span className="ml-auto text-[11px] text-muted-soft">
                       {formatDate(version.publishedAt ?? version.createdAt)}
                     </span>
                   </div>
@@ -557,11 +601,11 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
                         <Badge tone={installation.status === "INSTALLED" ? "ok" : "warn"}>
                           {installation.status}
                         </Badge>
-                        <span className="font-mono text-[9px] text-muted">
+                        <span className="font-mono text-[11px] text-muted">
                           {installation.versionLabel ?? "unknown version"}
                         </span>
                       </p>
-                      <p className="mt-0.5 truncate font-mono text-[9px] text-muted/55" title={installation.installPath}>
+                      <p className="mt-0.5 truncate font-mono text-[11px] text-muted-soft" title={installation.installPath}>
                         {truncateMiddle(installation.installPath, 82)}
                       </p>
                     </div>
@@ -571,7 +615,7 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
             </section>
           ) : null}
 
-          <section className="flex items-start gap-2 rounded-lg border border-line/70 bg-surface/30 px-3 py-2.5 text-[10px] leading-relaxed text-muted/70">
+          <section className="flex items-start gap-2 rounded-lg border border-line/70 bg-surface/30 px-3 py-2.5 text-[11px] leading-relaxed text-muted-soft">
             <ExternalLinkIcon className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
             Links in this README are shown as plain text. Use the provenance link above to open the
             source in your browser.
@@ -595,11 +639,11 @@ function Meta({
 }) {
   return (
     <div className="min-w-0">
-      <dt className="flex items-center gap-1.5 text-[9px] font-medium uppercase tracking-[0.1em] text-muted/60">
+      <dt className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-soft">
         {icon}
         {label}
       </dt>
-      <dd className={cx("mt-1 truncate text-[11px] text-text", mono && "font-mono text-[10.5px]")} title={value}>
+      <dd className={cx("mt-1 truncate text-[11px] text-text", mono && "font-mono text-[11px]")} title={value}>
         {value}
       </dd>
     </div>

@@ -9,15 +9,19 @@ const TONES: Record<string, BadgeTone> = {
 };
 
 const LABELS: Record<string, string> = {
-  OFFICIAL: "Official",
-  VERIFIED: "Verified",
+  OFFICIAL: "Official source",
+  VERIFIED: "Verified source",
   COMMUNITY: "Community",
 };
 
 export function TrustBadge({ trust, className }: { trust: TrustLevel | string; className?: string }) {
   const Icon = trust === "OFFICIAL" ? BadgeCheck : trust === "VERIFIED" ? Globe : Users;
   return (
-    <Badge tone={TONES[trust] ?? "neutral"} className={className}>
+    <Badge
+      tone={TONES[trust] ?? "neutral"}
+      className={className}
+      title="Source label set by you in Sources; it is not a platform signature."
+    >
       <Icon className="size-2.5" aria-hidden="true" />
       {LABELS[trust] ?? trust}
     </Badge>

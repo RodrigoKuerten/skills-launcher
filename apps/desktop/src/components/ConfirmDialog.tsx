@@ -68,7 +68,7 @@ export function ConfirmDialog({
     >
       {children ?? (
         <p className="text-xs leading-relaxed text-muted">
-          This action cannot be undone unless the backend created a backup.
+          This changes files on this computer. A backup is kept when one is available.
         </p>
       )}
     </Dialog>

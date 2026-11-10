@@ -25,7 +25,7 @@ export interface RouteMeta {
 
 export const ROUTE_META: Record<Route, RouteMeta> = {
   home: {
-    title: "Overview",
+    title: "Home",
     eyebrow: "Workspace",
     description: "A local-first view of your sources, skills and agents.",
   },
@@ -60,9 +60,9 @@ export const ROUTE_META: Record<Route, RouteMeta> = {
     description: "The repositories, folders and catalogs feeding your library.",
   },
   activity: {
-    title: "Activity",
+    title: "Downloads",
     eyebrow: "System",
-    description: "A local journal of syncs, installs and settings changes.",
+    description: "Installs, updates, rollbacks and source sync history.",
   },
   settings: {
     title: "Settings",

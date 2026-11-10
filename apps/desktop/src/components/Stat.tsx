@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react";
+﻿import type { LucideIcon } from "lucide-react";
 import { cx } from "../lib/cx";
 import { formatNumber } from "../lib/format";
 
@@ -29,8 +29,8 @@ export function Stat({ icon: Icon, label, value, hint, tone = "brand", className
         <p className="text-xl font-semibold leading-6 tracking-[-0.02em] tabular-nums text-text">
           {typeof value === "number" ? formatNumber(value) : value}
         </p>
-        <p className="truncate text-[10px] font-medium uppercase tracking-[0.08em] text-muted">{label}</p>
-        {hint ? <p className="mt-1 truncate text-[10px] text-muted/65">{hint}</p> : null}
+        <p className="truncate text-[11px] font-medium uppercase tracking-[0.08em] text-muted">{label}</p>
+        {hint ? <p className="mt-1 truncate text-[11px] text-muted-soft">{hint}</p> : null}
       </div>
     </div>
   );

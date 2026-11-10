@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react";
+﻿import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { cx } from "../../lib/cx";
 
@@ -42,7 +42,7 @@ export function EmptyState({
           <p className="mt-1.5 text-xs leading-relaxed text-muted">{description}</p>
         ) : null}
         {action ? <div className="mt-5 flex flex-wrap items-center justify-center gap-2">{action}</div> : null}
-        {hint ? <p className="mt-4 text-[10px] leading-relaxed text-muted/60">{hint}</p> : null}
+        {hint ? <p className="mt-4 text-[11px] leading-relaxed text-muted-soft">{hint}</p> : null}
       </div>
     </div>
   );

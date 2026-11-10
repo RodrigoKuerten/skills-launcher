@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Bot,
-  CircleAlert,
   Cpu,
   Info,
   RefreshCw,
@@ -66,6 +65,7 @@ export default function AgentsPage() {
   };
 
   const detected = (agents ?? []).filter((agent) => agent.detected);
+  const undetected = (agents ?? []).filter((agent) => !agent.detected);
 
   return (
     <div className="space-y-5">
@@ -89,11 +89,10 @@ export default function AgentsPage() {
       <div className="flex items-start gap-3 rounded-xl border border-line bg-surface/40 px-4 py-3">
         <Info className="mt-0.5 size-4 shrink-0 text-brand-soft/75" aria-hidden="true" />
         <div>
-          <p className="text-[11px] font-medium text-text">How detection works</p>
-          <p className="mt-0.5 text-[10px] leading-relaxed text-muted">
-            Skills Launcher probes supported agent executables, versions and documented configuration
-            artifacts. Automatic installs are only offered for detected runtimes that support Agent
-            Skills. Everything else stays export-only.
+          <p className="text-[11px] font-medium text-text">Only detected agents can receive installs</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+            Skills Launcher looks for a real installed app or executable, not just a config folder.
+            Everything else stays read-only and export-only.
           </p>
         </div>
       </div>
@@ -140,7 +139,7 @@ export default function AgentsPage() {
             }
           />
           <div className="rounded-[14px] border border-line bg-surface/35 p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/60">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-soft">
               Hosts probed
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -150,131 +149,167 @@ export default function AgentsPage() {
                 </Badge>
               ))}
             </div>
-            <p className="mt-3 text-[10px] leading-relaxed text-muted/60">
+            <p className="mt-3 text-[11px] leading-relaxed text-muted-soft">
               Detection is tied to the machine running the desktop app. If an agent lives in a remote
               container or another user profile, it cannot be detected here.
             </p>
           </div>
         </div>
       ) : (
-        <div className="grid items-start gap-3 md:grid-cols-2">
-          {agents
-            .slice()
-            .sort((a, b) => Number(b.detected) - Number(a.detected))
-            .map((agent) => {
-              const notes = agent.detected
-                ? agent.notes
-                : agent.notes.filter(
-                    (note) => !/no executable|app artifact|not detected/i.test(note),
-                  );
-              return (
-              <article
-                key={agent.host}
-                className={cx(
-                  "flex h-full flex-col rounded-[14px] border p-4",
-                  agent.detected
-                    ? "border-line bg-surface/55"
-                    : "border-line/70 bg-surface/25 opacity-80",
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  <span
-                    className={cx(
-                      "grid size-9 shrink-0 place-items-center rounded-[10px] border",
-                      agent.detected
-                        ? "border-brand/30 bg-brand/10 text-brand-soft"
-                        : "border-line bg-elevated/40 text-muted/60",
-                    )}
+        <div className="space-y-5">
+          {detected.length > 0 ? (
+            <div className={detected.length === 1 ? "" : "grid items-start gap-3 md:grid-cols-2"}>
+              {detected.map((agent) => (
+                <DetectedAgentCard
+                  key={agent.host}
+                  agent={agent}
+                  toggling={togglingHost !== null}
+                  onToggleAutoInstall={(checked) => void setAutoInstall(agent, checked)}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={Bot}
+              title="No agent runtime found"
+              description="None of the supported runtimes produced executable evidence. Install or start an agent, then rescan. A skills folder or config directory alone is not enough."
+              action={
+                <Button variant="secondary" onClick={() => void detect()}>
+                  Rescan agents
+                </Button>
+              }
+            />
+          )}
+
+          {undetected.length > 0 ? (
+            <section className="overflow-hidden rounded-[14px] border border-line/70 bg-surface/25">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line/60 px-4 py-3">
+                <div>
+                  <h2 className="flex items-center gap-2 text-[12px] font-semibold text-text">
+                    Not detected on this machine
+                    <Badge tone="neutral">{undetected.length}</Badge>
+                  </h2>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+                    No runtime evidence. These hosts are listed for reference only and receive no writes.
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => void detect()}>
+                  Rescan
+                </Button>
+              </div>
+              <div className="grid sm:grid-cols-2">
+                {undetected.map((agent) => (
+                  <div
+                    key={agent.host}
+                    className="flex min-w-0 items-center gap-3 border-b border-line/50 px-4 py-3 last:border-b-0 sm:odd:border-r"
                   >
-                    <Bot className="size-[17px]" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="truncate text-[13px] font-semibold text-text">
-                      {agent.name || hostName(agent.host)}
-                    </h2>
-                    <p className="mt-0.5 font-mono text-[9.5px] text-muted/60">{agent.host}</p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    <Badge tone={agent.detected ? "ok" : "neutral"} dot>
-                      {agent.detected ? "Detected" : "Not detected"}
-                    </Badge>
-                    {agent.supportsAgentSkills ? (
-                      <Badge tone="brand">Format: Agent Skills</Badge>
-                    ) : (
-                      <Badge tone="outline">Export only</Badge>
-                    )}
-                  </div>
-                </div>
-
-                {agent.detected ? (
-                  <dl className="mt-4 space-y-2.5 border-t border-line/60 pt-3">
-                    <EvidenceRow
-                      label="Executable"
-                      value={agent.executablePath}
-                      extra={agent.version ? <Badge tone="neutral">{agent.version}</Badge> : null}
-                      mono
-                      icon={<Terminal className="size-3" aria-hidden="true" />}
-                    />
-                    <EvidenceRow label="Config" value={agent.configPath} mono />
-                    <EvidenceRow label="Skills" value={agent.skillsPath} mono />
-                    <EvidenceRow label="Project" value={agent.projectSkillsPath} mono />
-                  </dl>
-                ) : (
-                  <div className="mt-4 flex items-start gap-2 border-t border-line/60 pt-3 text-[10.5px] leading-relaxed text-muted">
-                    <CircleAlert className="mt-0.5 size-3.5 shrink-0 text-muted/60" aria-hidden="true" />
-                    No executable or documented app artifact was found for this host.
-                  </div>
-                )}
-
-                {notes.length > 0 ? (
-                  <ul className="mt-3 space-y-1 border-t border-line/60 pt-3">
-                    {notes.map((note, index) => (
-                      <li key={index} className="flex items-start gap-1.5 text-[10px] leading-relaxed text-muted/75">
-                        <Info className="mt-0.5 size-3 shrink-0 text-brand-soft/50" aria-hidden="true" />
-                        {note}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-
-                <div className="mt-auto flex items-center justify-between gap-3 border-t border-line/60 pt-3">
-                  <div className="flex items-center gap-2 text-[10px] text-muted">
-                    <Cpu className="size-3 text-muted/60" aria-hidden="true" />
-                    {agent.detected
-                      ? agent.autoInstall
-                        ? "Auto-update is on"
-                        : "Manual updates"
-                      : "Unavailable"}
-                  </div>
-                  {agent.detected && agent.supportsAgentSkills ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted">Auto-update</span>
-                      <Switch
-                        checked={agent.autoInstall}
-                        onCheckedChange={(checked) => void setAutoInstall(agent, checked)}
-                        disabled={togglingHost !== null}
-                        label={`Toggle auto-update for ${agent.name || hostName(agent.host)}`}
-                      />
-                    </div>
-                  ) : (
-                    <span className="text-[10px] text-muted/55">
-                      {agent.detected ? "No automatic writes" : "Not writable"}
+                    <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-line bg-elevated/35 text-muted-soft">
+                      <Bot className="size-3.5" aria-hidden="true" />
                     </span>
-                  )}
-                </div>
-              </article>
-              );
-            })}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[12px] font-medium text-text/85">
+                        {agent.name || hostName(agent.host)}
+                      </p>
+                      <p className="mt-0.5 truncate font-mono text-[11px] text-muted-soft">
+                        {agent.host}
+                      </p>
+                    </div>
+                    <span className="text-[11px] text-muted-soft">No runtime</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
       )}
 
       <div className="rounded-[13px] border border-line bg-surface/30 px-4 py-3">
-        <p className="text-[10px] leading-relaxed text-muted/60">
+        <p className="text-[11px] leading-relaxed text-muted-soft">
           Auto-update applies after a successful source sync. It updates existing installations for
           this host only; undetected hosts receive no writes and no skill content is executed.
         </p>
       </div>
     </div>
+  );
+}
+
+function DetectedAgentCard({
+  agent,
+  toggling,
+  onToggleAutoInstall,
+}: {
+  agent: DetectedAgent;
+  toggling: boolean;
+  onToggleAutoInstall: (checked: boolean) => void;
+}) {
+  return (
+    <article className="flex h-full flex-col rounded-[14px] border border-line bg-surface/55 p-4">
+      <div className="flex items-start gap-3">
+        <span className="grid size-9 shrink-0 place-items-center rounded-[10px] border border-brand/30 bg-brand/10 text-brand-soft">
+          <Bot className="size-[17px]" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-[13px] font-semibold text-text">
+            {agent.name || hostName(agent.host)}
+          </h2>
+          <p className="mt-0.5 font-mono text-[11px] text-muted">{agent.host}</p>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <Badge tone="ok" dot>
+            Detected
+          </Badge>
+          {agent.supportsAgentSkills ? (
+            <Badge tone="brand">Format: Agent Skills</Badge>
+          ) : (
+            <Badge tone="outline">Export only</Badge>
+          )}
+        </div>
+      </div>
+
+      <dl className="mt-4 space-y-2.5 border-t border-line/60 pt-3">
+        <EvidenceRow
+          label="Executable"
+          value={agent.executablePath}
+          extra={agent.version ? <Badge tone="neutral">{agent.version}</Badge> : null}
+          mono
+          icon={<Terminal className="size-3" aria-hidden="true" />}
+        />
+        <EvidenceRow label="Config" value={agent.configPath} mono />
+        <EvidenceRow label="Skills" value={agent.skillsPath} mono />
+        <EvidenceRow label="Project" value={agent.projectSkillsPath} mono />
+      </dl>
+
+      {agent.notes.length > 0 ? (
+        <ul className="mt-3 space-y-1 border-t border-line/60 pt-3">
+          {agent.notes.map((note, index) => (
+            <li key={index} className="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-soft">
+              <Info className="mt-0.5 size-3 shrink-0 text-brand-soft/50" aria-hidden="true" />
+              {note}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <div className="mt-auto flex items-center justify-between gap-3 border-t border-line/60 pt-3">
+        <div className="flex items-center gap-2 text-[11px] text-muted">
+          <Cpu className="size-3 text-muted-soft" aria-hidden="true" />
+          {agent.autoInstall ? "Auto-update is on" : "Manual updates"}
+        </div>
+        {agent.supportsAgentSkills ? (
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-muted">Auto-update</span>
+            <Switch
+              checked={agent.autoInstall}
+              onCheckedChange={onToggleAutoInstall}
+              disabled={toggling}
+              label={`Toggle auto-update for ${agent.name || hostName(agent.host)}`}
+            />
+          </div>
+        ) : (
+          <span className="text-[11px] text-muted-soft">No automatic writes</span>
+        )}
+      </div>
+    </article>
   );
 }
 
@@ -292,16 +327,16 @@ function EvidenceRow({
   icon?: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 items-baseline gap-2">
-      <dt className="flex w-[64px] shrink-0 items-center gap-1 text-[9px] font-medium uppercase tracking-[0.08em] text-muted/50">
+    <div className="flex min-w-0 items-baseline gap-3">
+      <dt className="flex w-[86px] shrink-0 items-center gap-1 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-soft">
         {icon}
         {label}
       </dt>
       <dd
         className={cx(
-          "min-w-0 flex-1 truncate text-[10.5px]",
-          mono && "font-mono text-[9.5px]",
-          value ? "text-muted" : "text-muted/40",
+          "min-w-0 flex-1 truncate text-[11px]",
+          mono && "font-mono text-[11px]",
+          value ? "text-muted" : "text-muted-soft",
         )}
         title={value ?? undefined}
       >

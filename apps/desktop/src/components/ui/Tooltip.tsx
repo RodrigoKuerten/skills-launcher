@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 import { cx } from "../../lib/cx";
 
 export interface TooltipProps {
@@ -16,7 +16,7 @@ export function Tooltip({ label, children, side = "top", hideOnLarge = false, cl
       <span
         role="tooltip"
         className={cx(
-          "pointer-events-none absolute z-[70] whitespace-nowrap rounded-md border border-line bg-elevated px-2 py-1 text-[10px] font-medium text-text opacity-0 shadow-xl transition-opacity duration-150 group-hover/tt:opacity-100 group-focus-within/tt:opacity-100",
+          "pointer-events-none absolute z-[70] whitespace-nowrap rounded-md border border-line bg-elevated px-2 py-1 text-[11px] font-medium text-text opacity-0 shadow-xl transition-opacity duration-150 group-hover/tt:opacity-100 group-focus-within/tt:opacity-100",
           side === "top"
             ? "bottom-full left-1/2 mb-2 -translate-x-1/2"
             : "left-full top-1/2 ml-2.5 -translate-y-1/2",

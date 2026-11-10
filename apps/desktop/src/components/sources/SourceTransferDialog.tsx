@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Copy, Download, FileJson, FileUp, TriangleAlert } from "lucide-react";
 import { useToast } from "../ui/Toast";
 import { Button } from "../ui/Button";
@@ -155,7 +155,7 @@ export function SourceTransferDialog({ onClose, onImported }: SourceTransferDial
           ) : exportData ? (
             <>
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface/35 px-3 py-2.5">
-                <div className="flex items-center gap-2 text-[10px] text-muted">
+                <div className="flex items-center gap-2 text-[11px] text-muted">
                   <FileJson className="size-3.5 text-brand-soft/70" aria-hidden="true" />
                   {formatNumber(exportData.sources.length)}{" "}
                   {exportData.sources.length === 1 ? "source" : "sources"} · exported{" "}
@@ -172,10 +172,10 @@ export function SourceTransferDialog({ onClose, onImported }: SourceTransferDial
                   </Button>
                 </div>
               </div>
-              <pre className="max-h-[320px] overflow-auto whitespace-pre rounded-xl border border-line bg-canvas/50 p-3 font-mono text-[10px] leading-relaxed text-muted">
+              <pre className="max-h-[320px] overflow-auto whitespace-pre rounded-xl border border-line bg-canvas/50 p-3 font-mono text-[11px] leading-relaxed text-muted">
                 {pretty}
               </pre>
-              <p className="text-[10px] leading-relaxed text-muted/60">
+              <p className="text-[11px] leading-relaxed text-muted-soft">
                 The export contains source names, URLs, config and trust labels. Local folder paths are
                 included, so review the JSON before sharing it.
               </p>
@@ -186,7 +186,7 @@ export function SourceTransferDialog({ onClose, onImported }: SourceTransferDial
         <div className="space-y-3">
           <div className="rounded-lg border border-line bg-surface/35 px-3 py-2.5">
             <p className="text-[11px] font-medium text-text">Paste a source export</p>
-            <p className="mt-0.5 text-[10px] leading-relaxed text-muted">
+            <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
               Use the JSON produced by Export in another Skills Launcher window. There is no file read
               command in this UI, so import is paste-only.
             </p>
@@ -207,7 +207,7 @@ export function SourceTransferDialog({ onClose, onImported }: SourceTransferDial
               {importError}
             </p>
           ) : null}
-          <p className="text-[10px] leading-relaxed text-muted/60">
+          <p className="text-[11px] leading-relaxed text-muted-soft">
             Local folder and ZIP paths cannot be imported from JSON because filesystem grants are
             session-scoped. Remove those entries and add them with the native picker instead.
           </p>

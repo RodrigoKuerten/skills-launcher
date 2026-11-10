@@ -332,6 +332,7 @@ pub struct Stats {
     pub enabled_sources: i64,
     pub skills: i64,
     pub blocked_skills: i64,
+    pub quarantined_skills: i64,
     pub installed: i64,
     pub updates: i64,
     pub categories: i64,

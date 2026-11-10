@@ -19,7 +19,7 @@ export function Select({ className, options, placeholder, ...props }: SelectProp
       <select
         {...props}
         className={cx(
-          "h-10 w-full appearance-none rounded-[10px] border border-line bg-surface/80 pl-3 pr-9 text-[13px] text-text transition-[border-color,box-shadow] hover:border-brand/25 focus:border-brand/55 focus:outline-none focus:ring-2 focus:ring-brand/15 disabled:cursor-not-allowed disabled:opacity-50",
+          "h-10 w-full appearance-none rounded-[10px] border border-line bg-surface/80 pl-3 pr-9 text-[13px] text-text transition-[border-color,box-shadow] hover:border-brand/25 focus:border-brand/55 focus:outline-none focus:ring-2 focus:ring-brand/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
       >

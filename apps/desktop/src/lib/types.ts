@@ -240,6 +240,7 @@ export interface Stats {
   enabledSources: number;
   skills: number;
   blockedSkills: number;
+  quarantinedSkills: number;
   installed: number;
   updates: number;
   categories: number;

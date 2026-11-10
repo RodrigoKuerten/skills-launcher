@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+﻿import { useEffect, useState, type FormEvent } from "react";
 import {
   Activity,
   ArrowRight,
@@ -10,16 +10,16 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useAppData } from "../app/app-context";
-import { SyncAllButton } from "../components/SyncAllButton";
+import { RiskBadge } from "../components/RiskBadge";
 import { SourceRow } from "../components/SourceRow";
 import { Stat } from "../components/Stat";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
 import { SearchInput } from "../components/ui/Input";
+import { Skeleton } from "../components/ui/Skeleton";
 import { useToast } from "../components/ui/Toast";
-import { SOURCE_KIND_LABEL, hostName } from "../lib/constants";
-import { cx } from "../lib/cx";
+import { hostName } from "../lib/constants";
 import {
   errorMessage,
   formatDate,
@@ -33,7 +33,7 @@ import {
 import { operationIcon, sourceKindIcon } from "../lib/icons";
 import { ipc } from "../lib/ipc";
 import { navigate } from "../lib/router";
-import type { Source } from "../lib/types";
+import type { SkillSummary, Source } from "../lib/types";
 
 const HEALTH_ORDER = { error: 0, never: 1, ok: 2, disabled: 3 } as const;
 
@@ -42,10 +42,25 @@ export default function HomePage() {
   const toast = useToast();
   const [query, setQuery] = useState("");
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [featured, setFeatured] = useState<SkillSummary[] | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void ipc
+      .listSkills({ pageSize: 4, sort: "quality" })
+      .then((page) => {
+        if (active) setFeatured(page.items);
+      })
+      .catch(() => {
+        if (active) setFeatured([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [bootstrap?.stats.lastSyncAt, bootstrap?.stats.skills]);
 
   if (!bootstrap) return null;
   const { stats, sources, categories, recentOperations } = bootstrap;
-  const official = sources.filter((source) => source.trust === "OFFICIAL");
   const sortedSources = [...sources].sort(
     (a, b) => HEALTH_ORDER[sourceHealth(a)] - HEALTH_ORDER[sourceHealth(b)],
   );
@@ -90,16 +105,16 @@ export default function HomePage() {
           aria-hidden="true"
         />
 
-        <div className="relative grid items-center gap-8 px-6 py-8 sm:px-8 sm:py-10 xl:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="relative grid items-center gap-7 px-6 py-7 sm:px-8 sm:py-8 xl:grid-cols-[minmax(0,1fr)_260px]">
           <div className="min-w-0">
-            <p className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.2em] text-brand-soft/85">
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-soft/85">
               <span className="size-1.5 rounded-full bg-brand shadow-[0_0_10px_rgba(47,107,255,0.8)]" aria-hidden="true" />
               Local-first skill catalog
             </p>
-            <h1 className="mt-3 max-w-xl text-[30px] font-semibold leading-[1.08] tracking-[-0.04em] text-text sm:text-[36px]">
+            <h1 className="mt-3 max-w-xl text-[29px] font-semibold leading-[1.08] tracking-[-0.04em] text-text sm:text-[32px] xl:text-[36px]">
               One library for <span className="brand-gradient-text">every AI agent</span>
             </h1>
-            <p className="mt-3 max-w-xl text-[12.5px] leading-relaxed text-muted">
+            <p className="mt-3 max-w-xl text-[12px] leading-relaxed text-muted">
               Discover, inspect and install Agent Skills from sources you choose. Provenance, risk
               signals and local agent paths stay on this machine.
             </p>
@@ -120,7 +135,7 @@ export default function HomePage() {
               </Button>
             </form>
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] text-muted/70">
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-muted-soft">
               <span className="inline-flex items-center gap-1.5">
                 <Sparkles className="size-3 text-brand-soft/70" aria-hidden="true" />
                 {hasSkills
@@ -128,7 +143,7 @@ export default function HomePage() {
                   : "The catalog is ready for its first sync"}
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <FolderGit2 className="size-3 text-muted/60" aria-hidden="true" />
+                <FolderGit2 className="size-3 text-muted-soft" aria-hidden="true" />
                 {pluralize(stats.categories, "category", "categories")}
               </span>
             </div>
@@ -147,11 +162,11 @@ export default function HomePage() {
                   alt=""
                   className="relative size-24 rounded-[22px] shadow-[0_0_60px_-8px_rgba(47,107,255,0.45)] ring-1 ring-white/10"
                 />
-                <span className="absolute -right-2 top-5 rounded-md border border-line bg-elevated px-2 py-1 text-[9px] font-medium text-muted">
+                <span className="absolute -right-2 top-5 rounded-md border border-line bg-elevated px-2 py-1 text-[11px] font-medium text-muted">
                   {formatNumber(stats.enabledSources)} live
                 </span>
               </div>
-              <p className="mt-4 text-[9px] font-semibold uppercase tracking-[0.18em] text-muted/50">
+              <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-soft">
                 Local · private · yours
               </p>
             </div>
@@ -204,16 +219,13 @@ export default function HomePage() {
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line/70 px-4 py-3">
               <div>
                 <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-text">Source health</h2>
-                <p className="mt-0.5 text-[10px] text-muted">
+                <p className="mt-0.5 text-[11px] text-muted">
                   {sources.length > 0
-                    ? stats.lastSyncAt
-                      ? `Last sync ${formatRelative(stats.lastSyncAt)}`
-                      : "No catalog sync has run yet"
+                    ? `${pluralize(sources.length, "source")} configured`
                     : "Connect a repository, folder or catalog"}
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <SyncAllButton variant="primary" size="sm" />
                 <Button variant="ghost" size="sm" onClick={() => navigate("sources")}>
                   Manage
                 </Button>
@@ -253,7 +265,7 @@ export default function HomePage() {
                 <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-text">
                   Recent operations
                 </h2>
-                <p className="mt-0.5 text-[10px] text-muted">The local operation journal</p>
+                <p className="mt-0.5 text-[11px] text-muted">The local operation journal</p>
               </div>
               <Button variant="ghost" size="sm" onClick={() => navigate("activity")}>
                 View all
@@ -261,9 +273,9 @@ export default function HomePage() {
             </div>
             {recentOperations.length === 0 ? (
               <div className="px-4 py-7 text-center">
-                <Activity className="mx-auto size-5 text-muted/50" aria-hidden="true" />
+                <Activity className="mx-auto size-5 text-muted-soft" aria-hidden="true" />
                 <p className="mt-2 text-xs text-muted">No operations recorded yet.</p>
-                <p className="mt-1 text-[10px] text-muted/60">
+                <p className="mt-1 text-[11px] text-muted-soft">
                   Syncs, installs, updates and settings changes will appear here.
                 </p>
               </div>
@@ -296,11 +308,11 @@ export default function HomePage() {
                           <Badge tone={tone}>{humanizeStatus(operation.status)}</Badge>
                         </div>
                         {operation.detail ? (
-                          <p className="mt-0.5 line-clamp-1 text-[10px] text-muted">{operation.detail}</p>
+                          <p className="mt-0.5 line-clamp-1 text-[11px] text-muted">{operation.detail}</p>
                         ) : null}
                       </div>
                       <time
-                        className="shrink-0 pt-0.5 text-[9px] text-muted/60"
+                        className="shrink-0 pt-0.5 text-[11px] text-muted-soft"
                         dateTime={operation.createdAt}
                         title={formatDate(operation.createdAt)}
                       >
@@ -319,23 +331,39 @@ export default function HomePage() {
             <div className="flex items-center justify-between gap-3 border-b border-line/70 px-4 py-3">
               <div>
                 <h2 className="flex items-center gap-2 text-[13px] font-semibold tracking-[-0.01em] text-text">
-                  Official sources
-                  <Badge tone="brand">Recommended</Badge>
+                  Featured skills
+                  <Badge tone="brand">Quality</Badge>
                 </h2>
-                <p className="mt-0.5 text-[10px] text-muted">Maintained by the skill publishers</p>
+                <p className="mt-0.5 text-[11px] text-muted">Highest-signal skills already in your catalog</p>
               </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate("explore")}>
+                Browse all
+              </Button>
             </div>
-            {official.length === 0 ? (
+            {featured === null ? (
+              <div className="space-y-2 p-4">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <Skeleton className="size-8 rounded-lg" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-2.5 w-2/3" />
+                      <Skeleton className="h-2 w-1/3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : featured.length === 0 ? (
               <div className="px-4 py-7 text-center">
-                <p className="text-xs text-muted">No official sources are configured.</p>
+                <Sparkles className="mx-auto size-5 text-muted-soft" aria-hidden="true" />
+                <p className="mt-2 text-xs text-muted">Featured skills appear after a source sync.</p>
                 <Button variant="ghost" size="sm" className="mt-2" onClick={() => navigate("sources")}>
-                  Add a source
+                  Manage sources
                 </Button>
               </div>
             ) : (
               <div>
-                {official.map((source) => (
-                  <OfficialSourceRow key={source.id} source={source} />
+                {featured.map((skill) => (
+                  <FeaturedSkillRow key={skill.id} skill={skill} />
                 ))}
               </div>
             )}
@@ -347,27 +375,27 @@ export default function HomePage() {
           </section>
 
           <section className="rounded-[14px] border border-line bg-surface/45 p-4">
-            <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-text">How it works</h2>
-            <ol className="mt-3 space-y-3">
-              {[
-                ["Import", "Point a source at skills you trust. Every skill keeps its provenance."],
-                ["Inspect", "Read the README, scan findings, license and host compatibility before installing."],
-                ["Install", "The backend writes into detected agent folders and keeps a backup for rollback."],
-              ].map(([title, body], index) => (
-                <li key={title} className="flex gap-3">
-                  <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border border-brand/25 bg-brand/10 font-mono text-[9px] text-brand-soft">
-                    {index + 1}
-                  </span>
-                  <div>
-                    <p className="text-[11px] font-medium text-text">{title}</p>
-                    <p className="mt-0.5 text-[10px] leading-relaxed text-muted">{body}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-            <div className="mt-4 flex items-center gap-2 rounded-lg border border-line bg-canvas/40 px-2.5 py-2 text-[10px] text-muted">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-soft/80">
+              Open ecosystem
+            </p>
+            <h2 className="mt-2 text-[15px] font-semibold tracking-[-0.02em] text-text">
+              Bring your own catalog
+            </h2>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+              Any GitHub repository, folder, ZIP or HTTP JSON catalog can become a source. Share
+              the export with your team and keep provenance intact.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button size="sm" variant="primary" onClick={() => navigate("sources")}>
+                Add source
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => navigate("sources")}>
+                Import / export
+              </Button>
+            </div>
+            <div className="mt-4 flex items-center gap-2 border-t border-line/60 pt-3 text-[11px] text-muted">
               <ShieldAlert className="size-3 shrink-0 text-brand-soft/70" aria-hidden="true" />
-              Imported code is never executed by Skills Launcher.
+              Imported code is never executed.
             </div>
           </section>
         </div>
@@ -376,13 +404,12 @@ export default function HomePage() {
   );
 }
 
-function OfficialSourceRow({ source }: { source: Source }) {
-  const Icon = sourceKindIcon(source.kind);
-  const health = sourceHealth(source);
+function FeaturedSkillRow({ skill }: { skill: SkillSummary }) {
+  const Icon = sourceKindIcon(skill.sourceKind);
   return (
     <button
       type="button"
-      onClick={() => navigate("explore", { source: source.id })}
+      onClick={() => navigate("explore", { q: skill.name })}
       className="group flex w-full items-start gap-3 border-b border-line/60 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-text/[0.025]"
     >
       <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg border border-line bg-elevated/60 text-brand-soft/85">
@@ -390,20 +417,16 @@ function OfficialSourceRow({ source }: { source: Source }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <span className="truncate text-[11.5px] font-medium text-text">{source.name}</span>
-          <span
-            className={cx(
-              "ml-auto size-1.5 shrink-0 rounded-full",
-              health === "ok" ? "bg-ok" : health === "error" ? "bg-danger" : health === "disabled" ? "bg-muted/50" : "bg-warn",
-            )}
-            aria-hidden="true"
-          />
+          <span className="truncate text-[12px] font-medium text-text">{skill.name}</span>
+          <RiskBadge risk={skill.riskLevel} className="ml-auto shrink-0" />
         </span>
-        <span className="mt-0.5 line-clamp-1 block text-[10px] text-muted">
-          {source.description || SOURCE_KIND_LABEL[source.kind]}
+        <span className="mt-0.5 line-clamp-1 text-[11px] text-muted">
+          {skill.summary || skill.sourceName}
         </span>
-        <span className="mt-1 block text-[9px] text-muted/60">
-          {pluralize(source.skillCount, "skill")} · {source.lastSyncAt ? `synced ${formatRelative(source.lastSyncAt)}` : "not synced"}
+        <span className="mt-1 flex items-center gap-2 text-[11px] text-muted-soft">
+          <span className="truncate">{skill.sourceName}</span>
+          <span aria-hidden="true">·</span>
+          <span className="tabular-nums">Security {skill.securityScore}</span>
         </span>
       </span>
       <ArrowRight

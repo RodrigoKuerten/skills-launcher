@@ -20,14 +20,14 @@ page.on("console", (message) => {
 page.on("pageerror", (error) => consoleErrors.push(error.message));
 
 const routes = [
-  ["Overview", "home"],
+  ["Home", "home"],
   ["Explore", "explore"],
   ["Categories", "categories"],
   ["Library", "library"],
   ["Updates", "updates"],
   ["My Agents", "agents"],
   ["Sources", "sources"],
-  ["Activity", "activity"],
+  ["Downloads", "downloads"],
   ["Settings", "settings"],
 ];
 
@@ -37,7 +37,7 @@ async function shot(name) {
 
 async function clickNav(label) {
   await page.getByText(label, { exact: true }).first().click({ timeout: 3000 });
-  await page.waitForTimeout(350);
+  await page.waitForTimeout(label === "My Agents" ? 1200 : 600);
 }
 
 const results = [];
@@ -86,29 +86,21 @@ if (await addSource.count()) {
   await page.waitForTimeout(250);
 }
 
-// Light theme is a persisted setting; switch, save, capture Home.
-await clickNav("Settings");
-const light = page.getByRole("radio", { name: /Light/ }).first();
-if (await light.count()) {
-  await light.click();
-  const save = page.getByRole("button", { name: "Save changes" }).first();
-  if (await save.count()) {
-    await save.click();
-    await page.waitForTimeout(850);
-    await clickNav("Overview");
-    await shot("home-light");
-    await clickNav("Settings");
-    const dark = page.getByRole("radio", { name: /Dark/ }).first();
-    if (await dark.count()) {
-      await dark.click();
-      const saveAgain = page.getByRole("button", { name: "Save changes" }).first();
-      if (await saveAgain.count()) {
-        await saveAgain.click();
-        await page.waitForTimeout(700);
-      }
-    }
-  }
-}
+// Light palette preview. The persisted toggle is exercised separately so the
+// audit does not pollute the operation journal with test writes.
+await page.evaluate(() => {
+  document.documentElement.dataset.theme = "light";
+  document.documentElement.classList.remove("dark");
+});
+await page.evaluate(() => {
+  window.location.hash = "#/home";
+});
+await page.waitForTimeout(700);
+await shot("home-light");
+await page.evaluate(() => {
+  document.documentElement.dataset.theme = "dark";
+  document.documentElement.classList.add("dark");
+});
 
 // Narrow viewport via CDP emulation (980×640 minimum window).
 const cdpSession = await context.newCDPSession(page);

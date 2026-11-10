@@ -1,4 +1,4 @@
-import { Pencil, RefreshCw, Trash2 } from "lucide-react";
+﻿import { Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { SOURCE_KIND_LABEL } from "../lib/constants";
 import { cx } from "../lib/cx";
 import { formatRelative, pluralize, sourceHealth, sourceHealthLabel, truncateMiddle } from "../lib/format";
@@ -56,30 +56,30 @@ export function SourceRow({
           <span className="truncate text-xs font-medium text-text">{source.name}</span>
           <TrustBadge trust={source.trust} />
           {!compact ? (
-            <span className="text-[9px] uppercase tracking-[0.08em] text-muted/60">
+            <span className="text-[11px] uppercase tracking-[0.08em] text-muted-soft">
               {SOURCE_KIND_LABEL[source.kind] ?? source.kind}
             </span>
           ) : null}
         </div>
 
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted">
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
           <span className="inline-flex items-center gap-1.5">
             <span className={cx("size-1.5 rounded-full", HEALTH_CLASS[health])} aria-hidden="true" />
             {sourceHealthLabel(source)}
           </span>
           <span>{source.lastSyncAt ? formatRelative(source.lastSyncAt) : "Awaiting first sync"}</span>
           <span>{pluralize(source.skillCount, "skill")}</span>
-          {compact && source.autoSync ? <span className="text-muted/60">Auto</span> : null}
+          {compact && source.autoSync ? <span className="text-muted-soft">Auto</span> : null}
         </div>
 
         {!compact && source.url ? (
-          <p className="mt-1 truncate font-mono text-[10px] text-muted/55" title={source.url}>
+          <p className="mt-1 truncate font-mono text-[11px] text-muted-soft" title={source.url}>
             {truncateMiddle(source.url, 96)}
           </p>
         ) : null}
 
         {source.lastError ? (
-          <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-danger/85" title={source.lastError}>
+          <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-danger/85" title={source.lastError}>
             {source.lastError}
           </p>
         ) : null}

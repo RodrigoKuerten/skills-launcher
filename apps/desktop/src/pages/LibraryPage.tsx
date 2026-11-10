@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import {
   Download,
   History,
@@ -203,9 +203,11 @@ export default function LibraryPage() {
           </span>
         }
         actions={
-          <Button variant="primary" size="sm" onClick={() => navigate("explore")}>
-            Find skills
-          </Button>
+          bootstrap.stats.installed > 0 ? (
+            <Button variant="primary" size="sm" onClick={() => navigate("explore")}>
+              Find skills
+            </Button>
+          ) : undefined
         }
       />
 
@@ -286,16 +288,11 @@ export default function LibraryPage() {
           title="Nothing installed yet"
           description="Installed skills appear here with their host, version and backup state. Start in Explore and install into a detected agent."
           action={
-            <>
-              <Button variant="primary" onClick={() => navigate("explore")}>
-                Explore skills
-              </Button>
-              <Button variant="secondary" onClick={() => navigate("agents")}>
-                Check My Agents
-              </Button>
-            </>
+            <Button variant="primary" onClick={() => navigate("explore")}>
+              Explore skills
+            </Button>
           }
-          hint="Skills Launcher never installs into an undetected agent."
+          hint="Skills Launcher never installs into an undetected agent. Check My Agents first if no host appears."
         />
       ) : filteredOut ? (
         <EmptyState
@@ -330,25 +327,25 @@ export default function LibraryPage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[12.5px] font-medium text-text">{installation.skillName}</span>
+                    <span className="text-[12px] font-medium text-text">{installation.skillName}</span>
                     <Badge tone="neutral">{hostName(installation.host)}</Badge>
                     <Badge tone={statusTone(installation.status)} dot>
                       {humanizeStatus(installation.status)}
                     </Badge>
                     {updateAvailable ? <Badge tone="brand">Update available</Badge> : null}
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted">
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
                     <span className="font-mono">
                       {installation.versionLabel ?? "unknown"}
                       {installation.latestVersionLabel && updateAvailable ? (
-                        <span className="text-muted/55"> → {installation.latestVersionLabel}</span>
+                        <span className="text-muted-soft"> → {installation.latestVersionLabel}</span>
                       ) : null}
                     </span>
                     <span>Installed {formatRelative(installation.installedAt)}</span>
                     <span>Updated {formatRelative(installation.updatedAt)}</span>
                   </div>
                   <p
-                    className="mt-1 truncate font-mono text-[9.5px] text-muted/50"
+                    className="mt-1 truncate font-mono text-[11px] text-muted-soft"
                     title={installation.installPath}
                   >
                     {truncateMiddle(installation.installPath, 100)}
@@ -393,7 +390,7 @@ export default function LibraryPage() {
       )}
 
       {all.length > 0 ? (
-        <p className="flex items-center gap-2 text-[10px] text-muted/60">
+        <p className="flex items-center gap-2 text-[11px] text-muted-soft">
           <RefreshCw className="size-3" aria-hidden="true" />
           Updates and rollbacks create local operations. Check Activity for the full journal.
         </p>
@@ -419,18 +416,18 @@ export default function LibraryPage() {
             />
             <div>
               <p className="text-[11px] font-medium text-text">Also delete files from the agent folder</p>
-              <p className="mt-0.5 text-[10px] leading-relaxed text-muted">
+              <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
                 Off by default. The skill is unlinked from the library but its folder is left on disk.
               </p>
             </div>
           </div>
           {uninstallTarget ? (
-            <p className="break-all rounded-lg border border-line bg-canvas/40 px-3 py-2 font-mono text-[9.5px] leading-relaxed text-muted/70">
+            <p className="break-all rounded-lg border border-line bg-canvas/40 px-3 py-2 font-mono text-[11px] leading-relaxed text-muted-soft">
               {uninstallTarget.installPath}
             </p>
           ) : null}
           {removeFiles ? (
-            <p className="text-[10px] leading-relaxed text-warn">
+            <p className="text-[11px] leading-relaxed text-warn">
               Deleting files is destructive. A backup may allow a rollback if the installer created one.
             </p>
           ) : null}
@@ -485,9 +482,9 @@ export default function LibraryPage() {
           </div>
         ) : !backups || backups.length === 0 ? (
           <div className="rounded-xl border border-dashed border-line bg-surface/35 px-4 py-7 text-center">
-            <History className="mx-auto size-5 text-muted/50" aria-hidden="true" />
+            <History className="mx-auto size-5 text-muted-soft" aria-hidden="true" />
             <p className="mt-2 text-xs font-medium text-text">No backups for this installation</p>
-            <p className="mt-1 text-[10px] leading-relaxed text-muted">
+            <p className="mt-1 text-[11px] leading-relaxed text-muted">
               Backups appear here when an install, update or rollback creates one. Until one exists,
               this installation cannot be rolled back.
             </p>
@@ -521,9 +518,9 @@ export default function LibraryPage() {
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-2 text-[11px] text-text">
                       {backup.versionLabel ?? "Unknown version"}
-                      <span className="text-[9px] text-muted/60">{formatDate(backup.createdAt)}</span>
+                      <span className="text-[11px] text-muted-soft">{formatDate(backup.createdAt)}</span>
                     </span>
-                    <span className="mt-0.5 block truncate font-mono text-[9px] text-muted/50" title={backup.path}>
+                    <span className="mt-0.5 block truncate font-mono text-[11px] text-muted-soft" title={backup.path}>
                       {truncateMiddle(backup.path, 84)}
                     </span>
                   </span>
@@ -554,10 +551,10 @@ export default function LibraryPage() {
               Backup created {formatDate(rollbackConfirm.backup.createdAt)}. The installation record will
               point at this version again after the files are restored.
             </p>
-            <p className="break-all rounded-lg border border-line bg-canvas/40 px-3 py-2 font-mono text-[9.5px] text-muted/70">
+            <p className="break-all rounded-lg border border-line bg-canvas/40 px-3 py-2 font-mono text-[11px] text-muted-soft">
               {rollbackConfirm.backup.path}
             </p>
-            <p className="text-[10px] text-warn">
+            <p className="text-[11px] text-warn">
               Current files in the install folder are replaced. A new backup is created when the backend
               supports it.
             </p>

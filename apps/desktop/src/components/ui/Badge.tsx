@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 import { cx } from "../../lib/cx";
 
 export type BadgeTone = "neutral" | "brand" | "cyan" | "ok" | "warn" | "danger" | "outline";
@@ -19,13 +19,22 @@ export interface BadgeProps {
   dot?: boolean;
   className?: string;
   mono?: boolean;
+  title?: string;
 }
 
-export function Badge({ children, tone = "neutral", dot = false, className, mono = false }: BadgeProps) {
+export function Badge({
+  children,
+  tone = "neutral",
+  dot = false,
+  className,
+  mono = false,
+  title,
+}: BadgeProps) {
   return (
     <span
+      title={title}
       className={cx(
-        "inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[10px] font-medium leading-4 tracking-[0.02em]",
+        "inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[11px] font-medium leading-4 tracking-[0.02em]",
         TONES[tone],
         mono && "font-mono",
         className,

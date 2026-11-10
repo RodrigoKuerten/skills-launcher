@@ -1,4 +1,4 @@
-import { Search, X } from "lucide-react";
+﻿import { Search, X } from "lucide-react";
 import {
   forwardRef,
   type InputHTMLAttributes,
@@ -8,7 +8,7 @@ import {
 import { cx } from "../../lib/cx";
 
 const FIELD_BASE =
-  "w-full rounded-[10px] border border-line bg-surface/80 text-[13px] text-text transition-[border-color,box-shadow,background] placeholder:text-muted/55 hover:border-brand/25 focus:border-brand/55 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand/15 disabled:cursor-not-allowed disabled:opacity-50";
+  "w-full rounded-[10px] border border-line bg-surface/80 text-[13px] text-text transition-[border-color,box-shadow,background] placeholder:text-muted-soft hover:border-brand/25 focus:border-brand/55 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   leadingIcon?: ReactNode;
@@ -103,12 +103,16 @@ export function Field({ label, htmlFor, hint, error, optional, children, classNa
       <div className="flex items-baseline justify-between gap-3">
         <label htmlFor={htmlFor} className="text-[11px] font-medium text-muted">
           {label}
-          {optional ? <span className="ml-1.5 font-normal text-muted/60">Optional</span> : null}
+          {optional ? <span className="ml-1.5 font-normal text-muted-soft">Optional</span> : null}
         </label>
-        {error ? <span className="text-[10px] text-danger">{error}</span> : null}
+        {error ? (
+          <span className="text-[11px] text-danger" aria-live="polite">
+            {error}
+          </span>
+        ) : null}
       </div>
       {children}
-      {hint ? <p className="text-[10px] leading-relaxed text-muted/70">{hint}</p> : null}
+      {hint ? <p className="text-[11px] leading-relaxed text-muted-soft">{hint}</p> : null}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+﻿import { useState, type FormEvent } from "react";
 import { FolderOpen, Info, LoaderCircle, ShieldCheck } from "lucide-react";
 import { SOURCE_KINDS, TRUST_LEVELS } from "../../lib/constants";
 import { errorMessage, formatInterval, parsePositiveInt } from "../../lib/format";
@@ -13,6 +13,7 @@ import { useToast } from "../ui/Toast";
 
 export interface SourceFormDialogProps {
   source: Source | null;
+  defaultIntervalMinutes?: number;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -66,7 +67,12 @@ function validateRemoteUrl(kind: SourceKind, value: string): string | null {
   return null;
 }
 
-export function SourceFormDialog({ source, onClose, onSaved }: SourceFormDialogProps) {
+export function SourceFormDialog({
+  source,
+  defaultIntervalMinutes = 360,
+  onClose,
+  onSaved,
+}: SourceFormDialogProps) {
   const toast = useToast();
   const [name, setName] = useState(source?.name ?? "");
   const [kind, setKind] = useState<SourceKind>(source?.kind ?? "github_repo");
@@ -79,7 +85,9 @@ export function SourceFormDialog({ source, onClose, onSaved }: SourceFormDialogP
   const [trust, setTrust] = useState<TrustLevel>(source?.trust ?? "COMMUNITY");
   const [enabled, setEnabled] = useState(source?.enabled ?? true);
   const [autoSync, setAutoSync] = useState(source?.autoSync ?? false);
-  const [intervalText, setIntervalText] = useState(String(source?.intervalMinutes ?? 360));
+  const [intervalText, setIntervalText] = useState(
+    String(source?.intervalMinutes ?? defaultIntervalMinutes),
+  );
   const [repo, setRepo] = useState(configString(source, "repo"));
   const [branch, setBranch] = useState(configString(source, "branch"));
   const [path, setPath] = useState(configString(source, "path"));
@@ -244,7 +252,7 @@ export function SourceFormDialog({ source, onClose, onSaved }: SourceFormDialogP
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-medium text-text">{kindMeta?.label}</p>
-              <p className="mt-0.5 text-[10px] leading-relaxed text-muted">{kindMeta?.description}</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-muted">{kindMeta?.description}</p>
             </div>
             <ShieldCheck className="size-4 shrink-0 text-brand-soft/60" aria-hidden="true" />
           </div>
@@ -262,7 +270,7 @@ export function SourceFormDialog({ source, onClose, onSaved }: SourceFormDialogP
               <div className="flex gap-2">
                 <div className="flex min-w-0 flex-1 items-center rounded-[10px] border border-line bg-canvas/45 px-3">
                   <FolderOpen className="mr-2 size-3.5 shrink-0 text-muted" aria-hidden="true" />
-                  <span className="truncate font-mono text-[10px] text-muted" title={displayedPath || undefined}>
+                  <span className="truncate font-mono text-[11px] text-muted" title={displayedPath || undefined}>
                     {displayedPath || "No path selected"}
                   </span>
                 </div>
@@ -409,14 +417,14 @@ export function SourceFormDialog({ source, onClose, onSaved }: SourceFormDialogP
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-[11px] font-medium text-text">Enabled</p>
-              <p className="mt-0.5 text-[10px] text-muted">Include this source in catalog searches.</p>
+              <p className="mt-0.5 text-[11px] text-muted">Include this source in catalog searches.</p>
             </div>
             <Switch checked={enabled} onCheckedChange={setEnabled} label="Enable source" />
           </div>
           <div className="flex items-center justify-between gap-4 border-t border-line/60 pt-3">
             <div>
               <p className="text-[11px] font-medium text-text">Auto-sync</p>
-              <p className="mt-0.5 text-[10px] text-muted">Refresh this source on its interval.</p>
+              <p className="mt-0.5 text-[11px] text-muted">Refresh this source on its interval.</p>
             </div>
             <Switch checked={autoSync} onCheckedChange={setAutoSync} label="Enable auto-sync" />
           </div>
@@ -448,13 +456,13 @@ export function SourceFormDialog({ source, onClose, onSaved }: SourceFormDialogP
           </p>
         ) : null}
 
-        <p className="flex items-start gap-2 text-[10px] leading-relaxed text-muted/60">
+        <p className="flex items-start gap-2 text-[11px] leading-relaxed text-muted-soft">
           <Info className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-          Sources are fetched by the Rust backend. The UI never reads local paths or makes network
-          requests directly. Removing a source is a soft delete; installed files are untouched.
+          Sources are read-only inputs. Removing one never deletes skills already installed into an
+          agent. Local paths stay on this machine.
         </p>
         {saving ? (
-          <p className="flex items-center gap-2 text-[10px] text-muted">
+          <p className="flex items-center gap-2 text-[11px] text-muted">
             <LoaderCircle className="size-3 animate-spin" aria-hidden="true" />
             Saving source…
           </p>

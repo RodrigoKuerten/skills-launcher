@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+﻿import { ChevronLeft, ChevronRight } from "lucide-react";
 import { formatNumber } from "../lib/format";
 import { IconButton } from "./ui/IconButton";
 
@@ -12,14 +12,14 @@ export interface PaginationProps {
 export function Pagination({ page, pages, total, onPageChange }: PaginationProps) {
   if (pages <= 1) {
     return (
-      <p className="text-[10px] text-muted">
+      <p className="text-[11px] text-muted">
         {formatNumber(total)} {total === 1 ? "skill" : "skills"}
       </p>
     );
   }
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="text-[10px] text-muted">
+      <p className="text-[11px] text-muted">
         {formatNumber(total)} {total === 1 ? "skill" : "skills"} · page {page} of {pages}
       </p>
       <div className="flex items-center gap-1.5">

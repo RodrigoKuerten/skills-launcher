@@ -39,7 +39,7 @@ export const RISK_LEVELS: Array<{ value: RiskLevel; label: string }> = [
 ];
 
 export const SKILL_SORTS: Array<{ value: SkillSort; label: string }> = [
-  { value: "quality", label: "Best match" },
+  { value: "quality", label: "Quality" },
   { value: "recent", label: "Recently updated" },
   { value: "name", label: "Name A–Z" },
   { value: "stars", label: "Most stars" },
