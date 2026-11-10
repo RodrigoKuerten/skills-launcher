@@ -94,7 +94,7 @@ pub async fn sync_source(
             )?;
         }
         let count: i64 = tx.query_row(
-            "SELECT COUNT(*) FROM skills WHERE source_id=?1",
+            "SELECT COUNT(*) FROM skills WHERE source_id=?1 AND status IN ('ACTIVE','QUARANTINED')",
             params![source.id],
             |row| row.get(0),
         )?;

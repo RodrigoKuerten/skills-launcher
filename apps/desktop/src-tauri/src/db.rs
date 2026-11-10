@@ -471,7 +471,7 @@ impl Db {
     pub fn list_categories(&self) -> AppResult<Vec<Category>> {
         self.with_conn(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT c.slug,c.name,c.description,c.icon,c.sort_order,(SELECT COUNT(*) FROM skills s WHERE s.category=c.slug AND s.status='ACTIVE') FROM categories c ORDER BY c.sort_order",
+                "SELECT c.slug,c.name,c.description,c.icon,c.sort_order,(SELECT COUNT(*) FROM skills s JOIN sources src ON src.id=s.source_id WHERE s.category=c.slug AND s.status='ACTIVE' AND src.deleted_at IS NULL) FROM categories c ORDER BY c.sort_order",
             )?;
             let rows = stmt.query_map([], |row| {
                 Ok(Category {
@@ -495,9 +495,13 @@ impl Db {
         self.with_conn(|conn| {
             let sources = conn.query_row("SELECT COUNT(*) FROM sources WHERE deleted_at IS NULL", [], |row| row.get(0))?;
             let enabled_sources = conn.query_row("SELECT COUNT(*) FROM sources WHERE enabled=1 AND deleted_at IS NULL", [], |row| row.get(0))?;
-            let skills = conn.query_row("SELECT COUNT(*) FROM skills", [], |row| row.get(0))?;
+            let skills = conn.query_row(
+                "SELECT COUNT(*) FROM skills s JOIN sources src ON src.id=s.source_id WHERE src.deleted_at IS NULL",
+                [],
+                |row| row.get(0),
+            )?;
             let blocked_skills = conn.query_row(
-                "SELECT COUNT(*) FROM skills WHERE status='QUARANTINED' OR risk_level IN ('HIGH','CRITICAL')",
+                "SELECT COUNT(*) FROM skills s JOIN sources src ON src.id=s.source_id WHERE src.deleted_at IS NULL AND (s.status='QUARANTINED' OR s.risk_level IN ('HIGH','CRITICAL'))",
                 [],
                 |row| row.get(0),
             )?;
