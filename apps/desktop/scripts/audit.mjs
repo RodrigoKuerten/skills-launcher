@@ -1,9 +1,11 @@
 import { chromium } from "playwright-core";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const cdp = process.env.CDP_URL ?? "http://127.0.0.1:9222";
-const outDir = path.resolve("docs/audit");
+const here = path.dirname(fileURLToPath(import.meta.url));
+const outDir = path.resolve(here, "../../../docs/audit");
 mkdirSync(outDir, { recursive: true });
 
 const browser = await chromium.connectOverCDP(cdp);
