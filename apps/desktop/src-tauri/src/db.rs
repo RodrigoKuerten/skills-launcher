@@ -274,6 +274,15 @@ impl Db {
             "UPDATE installations SET status='FAILED' WHERE status='INSTALLING'",
             [],
         )?;
+        let recovered_at = now_iso();
+        conn.execute(
+            "UPDATE source_runs SET status='error',error=COALESCE(error,'Interrupted by app restart'),finished_at=?1 WHERE status='running'",
+            params![recovered_at],
+        )?;
+        conn.execute(
+            "UPDATE sources SET last_status='error',last_error=COALESCE(last_error,'Interrupted by app restart') WHERE last_status='running'",
+            [],
+        )?;
         conn.execute(
             "UPDATE skill_versions SET version_label=substr(content_hash,1,8) WHERE version_label IN ('main','master','')",
             [],
