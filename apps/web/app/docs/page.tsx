@@ -7,7 +7,7 @@ export default function DocsPage() {
   return (
     <div>
       <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">Docs</div>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight">AI Skills Hub</h1>
+      <h1 className="mt-2 text-3xl font-semibold tracking-tight">Skills Launcher</h1>
       <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
         A catalog and distribution layer for Agent Skills. Skills are imported from verifiable sources, content-addressed,
         statically scanned, validated per host, and installed by a loopback companion with backups and rollback.

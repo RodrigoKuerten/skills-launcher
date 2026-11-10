@@ -45,7 +45,7 @@ export function SiteFooter() {
       </div>
       <div className="border-t border-border/60">
         <div className="container-page flex flex-col gap-2 py-5 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} AI Skills Hub. Source metadata belongs to its original authors.</p>
+          <p>© {new Date().getFullYear()} Skills Launcher. Source metadata belongs to its original authors.</p>
           <p className="font-mono">Built with ECC multi-agent orchestration</p>
         </div>
       </div>
