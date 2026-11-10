@@ -239,6 +239,17 @@ const CATEGORIES: &[(&str, &str, &str, &str, i64)] = &[
     ),
 ];
 
+type SeedSource = (
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    Option<&'static str>,
+);
+
 fn column_exists(conn: &Connection, table: &str, column: &str) -> AppResult<bool> {
     let mut statement = conn.prepare(&format!("PRAGMA table_info({table})"))?;
     let columns = statement.query_map([], |row| row.get::<_, String>(1))?;
@@ -340,33 +351,38 @@ impl Db {
                     params![key, value],
                 )?;
             }
-            let count: i64 = conn.query_row("SELECT COUNT(*) FROM sources", [], |row| row.get(0))?;
-            if count == 0 {
-                let now = now_iso();
-                let seed_sources: &[(&str, &str, &str, &str, &str, &str, &str)] = &[
-                    ("anthropics-skills", "Anthropic Skills", "github_repo", "https://github.com/anthropics/skills", "skills", "OFFICIAL", "Official Agent Skills from Anthropic."),
-                    ("openai-skills", "OpenAI Skills", "github_repo", "https://github.com/openai/skills", "skills/.curated", "OFFICIAL", "Curated skills for OpenAI Codex."),
-                    ("microsoft-skills", "Microsoft Skills", "github_repo", "https://github.com/microsoft/skills", ".github/skills", "OFFICIAL", "Skills, agents and MCP grounding from Microsoft."),
-                    ("huggingface-skills", "Hugging Face Skills", "github_repo", "https://github.com/huggingface/skills", "skills", "OFFICIAL", "Skills for the Hugging Face ecosystem."),
-                    ("vercel-agent-skills", "Vercel Agent Skills", "github_repo", "https://github.com/vercel-labs/agent-skills", "skills", "VERIFIED", "Agent skills from Vercel Labs."),
-                ];
-                for (id, name, kind, url, path, trust, description) in seed_sources {
-                    let repo = url.trim_start_matches("https://github.com/");
-                    conn.execute(
-                        "INSERT INTO sources(id,name,kind,url,author,description,config,trust,enabled,auto_sync,interval_minutes,skill_count,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,1,0,360,0,?9,?9)",
-                        params![
-                            id,
-                            name,
-                            kind,
-                            url,
-                            repo.split('/').next().unwrap_or(""),
-                            description,
-                            json!({"repo": repo, "branch": "", "path": path}).to_string(),
-                            trust,
-                            now
-                        ],
-                    )?;
-                }
+            let now = now_iso();
+            let seed_sources: &[SeedSource] = &[
+                ("anthropics-skills", "Anthropic Skills", "github_repo", "https://github.com/anthropics/skills", "skills", "OFFICIAL", "Official Agent Skills from Anthropic.", None),
+                ("openai-skills", "OpenAI Skills", "github_repo", "https://github.com/openai/skills", "skills/.curated", "OFFICIAL", "Curated skills for OpenAI Codex.", None),
+                ("microsoft-skills", "Microsoft Skills", "github_repo", "https://github.com/microsoft/skills", ".github/skills", "OFFICIAL", "Skills, agents and MCP grounding from Microsoft.", None),
+                ("huggingface-skills", "Hugging Face Skills", "github_repo", "https://github.com/huggingface/skills", "skills", "OFFICIAL", "Skills for the Hugging Face ecosystem.", None),
+                ("vercel-agent-skills", "Vercel Agent Skills", "github_repo", "https://github.com/vercel-labs/agent-skills", "skills", "VERIFIED", "Agent skills from Vercel Labs.", None),
+                ("nvidia-skills", "NVIDIA Skills", "github_repo", "https://github.com/NVIDIA/skills", "skills", "OFFICIAL", "Official NVIDIA skills for CUDA-X, robotics, simulation and AI workflows.", Some("Apache-2.0")),
+                ("cloudflare-skills", "Cloudflare Skills", "github_repo", "https://github.com/cloudflare/skills", "skills", "OFFICIAL", "Official skills for building on Cloudflare Workers and platform services.", Some("Apache-2.0")),
+                ("supabase-agent-skills", "Supabase Agent Skills", "github_repo", "https://github.com/supabase/agent-skills", "skills", "OFFICIAL", "Official Supabase skills for database, auth and backend workflows.", Some("MIT")),
+                ("antfu-skills", "Anthony Fu Skills", "github_repo", "https://github.com/antfu/skills", "skills", "COMMUNITY", "Anthony Fu's curated agent skills for frontend and tooling workflows.", Some("MIT")),
+                ("kotlin-backend-agent-skills", "Kotlin Backend Agent Skills", "github_repo", "https://github.com/Kotlin/kotlin-backend-agent-skills", ".agents/skills", "VERIFIED", "Kotlin backend skills maintained by the Kotlin project.", Some("MIT")),
+                ("openclaw-agent-skills", "OpenClaw Agent Skills", "github_repo", "https://github.com/openclaw/agent-skills", "skills", "COMMUNITY", "Operational skills maintained by the OpenClaw project.", Some("MIT")),
+            ];
+            // Seed by stable ID on every open so existing databases receive new recommendations.
+            for (id, name, kind, url, path, trust, description, license) in seed_sources {
+                let repo = url.trim_start_matches("https://github.com/");
+                conn.execute(
+                    "INSERT OR IGNORE INTO sources(id,name,kind,url,author,description,config,trust,license,enabled,auto_sync,interval_minutes,skill_count,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,1,0,360,0,?10,?10)",
+                    params![
+                        id,
+                        name,
+                        kind,
+                        url,
+                        repo.split('/').next().unwrap_or(""),
+                        description,
+                        json!({"repo": repo, "branch": "", "path": path}).to_string(),
+                        trust,
+                        license,
+                        now
+                    ],
+                )?;
             }
             Ok(())
         })
@@ -595,5 +611,29 @@ impl Db {
             )?;
             Ok(())
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recommended_sources_seed_once() {
+        let data =
+            std::env::temp_dir().join(format!("skills-launcher-seed-{}", uuid::Uuid::new_v4()));
+        let db = Db::open(&data).unwrap();
+        let first = db.list_sources().unwrap();
+        assert!(first.len() >= 11);
+        assert!(first.iter().any(|source| source.id == "nvidia-skills"));
+        assert!(first
+            .iter()
+            .any(|source| source.id == "kotlin-backend-agent-skills"));
+        drop(db);
+
+        let db = Db::open(&data).unwrap();
+        assert_eq!(db.list_sources().unwrap().len(), first.len());
+        drop(db);
+        let _ = std::fs::remove_dir_all(data);
     }
 }

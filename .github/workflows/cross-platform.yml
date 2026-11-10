@@ -34,6 +34,17 @@ jobs:
       - name: Rust tests
         working-directory: apps/desktop/src-tauri
         run: cargo test
+      - name: Install OpenCode CLI
+        if: runner.os != 'Windows'
+        run: |
+          npm install -g opencode-ai@1.19.5
+          opencode --version
+      - name: Real OpenCode detection and install
+        if: runner.os != 'Windows'
+        working-directory: apps/desktop/src-tauri
+        env:
+          SKILLS_LAUNCHER_EXPECT_OPENCODE: "1"
+        run: cargo test real_opencode_detect_install_uninstall -- --ignored --nocapture
 
   runtime:
     name: runtime / ${{ matrix.name }}
@@ -60,41 +71,34 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libgtk-3-dev patchelf xvfb dbus-x11
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libgtk-3-dev patchelf xvfb dbus-x11 xdotool imagemagick x11-utils
       - run: npm ci
       - run: npm run ui:build -w @skills-launcher/desktop
       - name: Build Tauri binary
         working-directory: apps/desktop/src-tauri
         run: cargo build --release
-      - name: Launch smoke test (Linux)
+      - name: GUI smoke and screenshot (Linux)
         if: runner.os == 'Linux'
-        working-directory: apps/desktop/src-tauri
+        working-directory: apps/desktop
         env:
           WEBKIT_DISABLE_COMPOSITING_MODE: "1"
           WEBKIT_DISABLE_DMABUF_RENDERER: "1"
           GDK_BACKEND: x11
+          EVIDENCE_DIR: ${{ runner.temp }}/gui-evidence
         run: |
-          dbus-run-session -- xvfb-run -a bash -c '
-            ./target/release/skills-launcher > /tmp/skills-launcher.log 2>&1 &
-            pid=$!
-            sleep 10
-            if ! kill -0 "$pid"; then
-              cat /tmp/skills-launcher.log
-              exit 1
-            fi
-            kill "$pid"
-            wait "$pid" 2>/dev/null || true
-          '
-      - name: Launch smoke test (macOS)
+          dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24" \
+            bash scripts/gui-smoke-linux.sh "$PWD/src-tauri/target/release/skills-launcher" "$EVIDENCE_DIR"
+      - name: GUI smoke and screenshot (macOS)
         if: runner.os == 'macOS'
-        working-directory: apps/desktop/src-tauri
+        working-directory: apps/desktop
+        env:
+          EVIDENCE_DIR: ${{ runner.temp }}/gui-evidence
         run: |
-          ./target/release/skills-launcher > /tmp/skills-launcher.log 2>&1 &
-          pid=$!
-          sleep 10
-          if ! kill -0 "$pid"; then
-            cat /tmp/skills-launcher.log
-            exit 1
-          fi
-          kill "$pid"
-          wait "$pid" 2>/dev/null || true
+          bash scripts/gui-smoke-macos.sh "$PWD/src-tauri/target/release/skills-launcher" "$EVIDENCE_DIR"
+      - name: Upload GUI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui-${{ matrix.name }}
+          path: ${{ runner.temp }}/gui-evidence
+          if-no-files-found: warn

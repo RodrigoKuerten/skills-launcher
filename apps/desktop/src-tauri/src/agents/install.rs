@@ -1069,7 +1069,7 @@ fn now_iso() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::{SourceInput, SourceKind};
+    use crate::domain::{InstallRequest, SourceInput, SourceKind};
     use serde_json::json;
 
     fn fixture_root() -> PathBuf {
@@ -1215,6 +1215,113 @@ mod tests {
         let restored = std::fs::read_to_string(Path::new(&installed).join("SKILL.md")).unwrap();
         assert!(restored.contains("First version"));
         assert!(Path::new(&installed).join("user-note.txt").is_file());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[tokio::test]
+    #[ignore = "requires a real OpenCode executable; CI sets SKILLS_LAUNCHER_EXPECT_OPENCODE=1"]
+    async fn real_opencode_detect_install_uninstall() {
+        if std::env::var("SKILLS_LAUNCHER_EXPECT_OPENCODE").as_deref() != Ok("1") {
+            eprintln!("skipping: SKILLS_LAUNCHER_EXPECT_OPENCODE is not set");
+            return;
+        }
+        let root = std::env::temp_dir().join(format!(
+            "skills-launcher-opencode-smoke-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let data = root.join("data");
+        let source_dir = root.join("source/demo-skill");
+        std::fs::create_dir_all(&source_dir).unwrap();
+        std::fs::write(
+            source_dir.join("SKILL.md"),
+            "---\nname: CI OpenCode Smoke\ndescription: Verifies the real OpenCode host path.\nlicense: MIT\n---\n\nInstall and remove this fixture.\n",
+        )
+        .unwrap();
+
+        let db = Db::open(&data).unwrap();
+        let source = crate::catalog::create_source(
+            &db,
+            SourceInput {
+                name: "CI fixture".into(),
+                kind: SourceKind::LocalDir,
+                url: root.join("source").to_string_lossy().to_string(),
+                author: "CI".into(),
+                description: String::new(),
+                config: json!({}),
+                trust: "COMMUNITY".into(),
+                enabled: true,
+                auto_sync: false,
+                interval_minutes: 360,
+            },
+        )
+        .unwrap();
+        crate::catalog::sync_source(
+            &db,
+            &reqwest::Client::new(),
+            None,
+            &data.join("tmp"),
+            &source.id,
+            "manual",
+        )
+        .await
+        .unwrap();
+        let skill = crate::catalog::list_skills(&db, &Default::default())
+            .unwrap()
+            .items
+            .into_iter()
+            .next()
+            .expect("fixture skill was not indexed");
+
+        let detected = crate::agents::detect_all(&db).await.unwrap();
+        let opencode = detected
+            .iter()
+            .find(|agent| agent.host == "opencode")
+            .expect("OpenCode host descriptor missing");
+        assert!(
+            opencode.detected,
+            "OpenCode was installed but not detected: {:?}",
+            opencode.notes
+        );
+        println!(
+            "detected OpenCode exe={:?} version={:?} skills={:?}",
+            opencode.executable_path, opencode.version, opencode.skills_path
+        );
+
+        let response = install_skill(
+            &db,
+            &data,
+            &InstallRequest {
+                skill_id: skill.id.clone(),
+                version_id: None,
+                hosts: vec!["opencode".into()],
+                allow_risky: false,
+            },
+            &detected,
+        )
+        .unwrap();
+        let outcome = response
+            .outcomes
+            .into_iter()
+            .find(|outcome| outcome.host == "opencode")
+            .expect("OpenCode install outcome missing");
+        assert!(outcome.ok, "OpenCode install failed: {}", outcome.message);
+        let installed = PathBuf::from(outcome.install_path.expect("install path missing"));
+        let expected_root = dirs::home_dir().unwrap().join(".config/opencode/skills");
+        assert!(installed.starts_with(&expected_root));
+        assert!(installed.join("SKILL.md").is_file());
+
+        let installation_id: String = db
+            .with_conn(|conn| {
+                Ok(conn.query_row(
+                    "SELECT id FROM installations WHERE skill_id=?1 AND host='opencode' AND status='INSTALLED'",
+                    params![skill.id],
+                    |row| row.get(0),
+                )?)
+            })
+            .unwrap();
+        uninstall_skill(&db, &data, &installation_id, true).unwrap();
+        assert!(!installed.exists(), "OpenCode skill was not removed");
+
         let _ = std::fs::remove_dir_all(root);
     }
 }
