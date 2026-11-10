@@ -1,0 +1,25 @@
+{
+  "name": "@skills-hub/agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "skills-hub": "./src/cli.ts"
+  },
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "start": "tsx src/server.ts",
+    "detect": "tsx src/cli.ts detect",
+    "cli": "tsx src/cli.ts",
+    "test": "vitest run tests"
+  },
+  "dependencies": {
+    "@skills-hub/core": "*",
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "tsx": "^4.23.15",
+    "typescript": "5.9.3"
+  }
+}

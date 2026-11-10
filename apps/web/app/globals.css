@@ -1,0 +1,291 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  --background: #f7f7f8;
+  --foreground: #0b0b0f;
+  --card: #ffffff;
+  --card-foreground: #0b0b0f;
+  --surface: #f0f0f2;
+  --muted: #eeeef1;
+  --muted-foreground: #66666f;
+  --border: #e2e2e7;
+  --input: #dcdce2;
+  --ring: #e07856;
+  --accent: #a8442a;
+  --accent-foreground: #ffffff;
+  --accent-soft: #fbe9e3;
+  --success: #16875d;
+  --warning: #a16207;
+  --danger: #c02b2b;
+}
+
+.dark {
+  --background: #070708;
+  --foreground: #f4f4f5;
+  --card: #0d0d0f;
+  --card-foreground: #f4f4f5;
+  --surface: #121215;
+  --muted: #18181c;
+  --muted-foreground: #92929d;
+  --border: #232329;
+  --input: #2b2b33;
+  --ring: #e07856;
+  --accent: #e07856;
+  --accent-foreground: #160904;
+  --accent-soft: #2a1712;
+  --success: #4ade9b;
+  --warning: #fbbf66;
+  --danger: #f87171;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+  color-scheme: light;
+}
+
+.dark html,
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "ss01", "cv01", "cv11";
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+  border: 2px solid var(--background);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@utility container-page {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+
+@utility glass {
+  background: color-mix(in srgb, var(--background) 78%, transparent);
+  backdrop-filter: blur(16px) saturate(160%);
+}
+
+@utility accent-text {
+  color: var(--accent);
+}
+
+@utility surface-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.anim-fade-up {
+  animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--muted);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--foreground) 6%, transparent), transparent);
+  animation: shimmer 1.6s infinite;
+}
+
+/* Markdown rendered from untrusted skill files. Styled, never trusted as HTML. */
+.skill-prose {
+  font-size: 0.925rem;
+  line-height: 1.75;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+.skill-prose h1,
+.skill-prose h2,
+.skill-prose h3,
+.skill-prose h4 {
+  color: var(--foreground);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-top: 1.8em;
+  margin-bottom: 0.6em;
+  scroll-margin-top: 90px;
+}
+.skill-prose h1 {
+  font-size: 1.45rem;
+}
+.skill-prose h2 {
+  font-size: 1.2rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+}
+.skill-prose h3 {
+  font-size: 1.02rem;
+}
+.skill-prose p,
+.skill-prose ul,
+.skill-prose ol,
+.skill-prose table,
+.skill-prose blockquote {
+  margin-bottom: 1em;
+}
+.skill-prose ul {
+  list-style: disc;
+  padding-left: 1.4em;
+}
+.skill-prose ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+}
+.skill-prose li {
+  margin: 0.25em 0;
+}
+.skill-prose a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.skill-prose code {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.82em;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  padding: 0.12em 0.35em;
+  border-radius: 5px;
+  color: var(--foreground);
+}
+.skill-prose pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+  margin-bottom: 1.1em;
+}
+.skill-prose pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--foreground);
+}
+.skill-prose blockquote {
+  border-left: 2px solid var(--accent);
+  padding-left: 1em;
+  color: var(--muted-foreground);
+}
+.skill-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.skill-prose th,
+.skill-prose td {
+  border: 1px solid var(--border);
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+}
+.skill-prose th {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.skill-prose img {
+  display: none;
+}
+.skill-prose hr {
+  border-color: var(--border);
+  margin: 1.5rem 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

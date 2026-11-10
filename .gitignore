@@ -1,0 +1,23 @@
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+.env
+.env.local
+*.db
+*.db-journal
+prisma/dev.db
+storage/
+test-results/
+playwright-report/
+.DS_Store
+
+# Desktop build artifacts
+apps/desktop/dist/
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/binaries/
+apps/desktop/src-tauri/gen/
+*.bak

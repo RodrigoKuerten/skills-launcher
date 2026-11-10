@@ -1,0 +1,342 @@
+// Prisma schema — SQLite for the MVP. JSON is stored as String for provider
+// parity. Switching to PostgreSQL needs migrations, timestamptz columns,
+// case-insensitive search handling and SKIP LOCKED in the job claim.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  passwordHash  String
+  role          String         @default("USER") // USER | ADMIN
+  preferences   String         @default("{}")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sessions      Session[]
+  apiTokens     ApiToken[]
+  library       LibraryItem[]
+  reviews       Review[]
+  reports       Report[]
+  installations Installation[]
+  auditLogs     AuditLog[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model ApiToken {
+  id         String    @id @default(cuid())
+  name       String
+  tokenHash  String    @unique
+  userId     String
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Category {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  name        String
+  description String
+  icon        String  @default("Box")
+  sortOrder   Int     @default(0)
+  skills      Skill[]
+}
+
+model Source {
+  id               String      @id @default(cuid())
+  slug             String      @unique
+  type             String // GITHUB_REPO | RSS | HTTP_JSON
+  name             String
+  url              String
+  repo             String? // owner/name for GitHub sources
+  githubRepoId     String? // pinned numeric repo id; owner/name is transferable
+  license          String? // SPDX id from the source, when known
+  path             String? // optional subdirectory to scan
+  branch           String      @default("main")
+  trustTier        String      @default("COMMUNITY") // OFFICIAL | VERIFIED | COMMUNITY
+  enabled          Boolean     @default(true)
+  frequencyMinutes Int         @default(360)
+  etag             String?
+  lastModified     String?
+  lastTreeSha      String?
+  lastCheckedAt    DateTime?
+  lastStatus       String? // OK | ERROR | SKIPPED
+  lastError        String?
+  config           String      @default("{}")
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  skills           Skill[]
+  runs             SyncRun[]
+  discoveries      Discovery[]
+
+  @@index([enabled, lastCheckedAt])
+}
+
+model Skill {
+  id               String         @id @default(cuid())
+  slug             String         @unique
+  name             String
+  summary          String
+  description      String         @default("")
+  searchText       String         @default("")
+  author           String
+  icon             String?
+  repositoryUrl    String
+  sourceUrl        String
+  license          String?
+  priceCents       Int            @default(0)
+  currency         String         @default("USD")
+  status           String         @default("ACTIVE") // ACTIVE | QUARANTINED | ARCHIVED | REJECTED
+  stars            Int            @default(0)
+  forks            Int            @default(0)
+  qualityScore     Int            @default(0)
+  securityScore    Int            @default(100)
+  riskLevel        String         @default("LOW")
+  trustLevel       String         @default("IN_REVIEW")
+  installCount     Int            @default(0)
+  ratingAvg        Float          @default(0)
+  ratingCount      Int            @default(0)
+  featured         Boolean        @default(false)
+  archived         Boolean        @default(false)
+  categoryId       String?
+  sourceId         String
+  sourcePath       String
+  sourceRef        String?
+  currentVersionId String?        @unique
+  lastSyncedAt     DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  category         Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  source           Source         @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  currentVersion   SkillVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  versions         SkillVersion[] @relation("SkillVersions")
+  hosts            SkillHost[]
+  library          LibraryItem[]
+  reviews          Review[]
+  reports          Report[]
+  installations    Installation[]
+
+  @@unique([sourceId, sourcePath])
+  @@index([categoryId])
+  @@index([status])
+  @@index([status, qualityScore])
+  @@index([status, stars])
+  @@index([status, createdAt])
+  @@index([status, ratingAvg])
+  @@index([status, name])
+  @@index([status, updatedAt])
+  @@index([featured])
+  @@index([installCount])
+  @@index([qualityScore])
+  @@index([updatedAt])
+  @@index([trustLevel])
+}
+
+model SkillVersion {
+  id            String    @id @default(cuid())
+  skillId       String
+  versionLabel  String
+  contentHash   String
+  commitSha     String?
+  treeSha       String?
+  changelog     String    @default("")
+  files         String // JSON array of SkillFile
+  readme        String    @default("")
+  frontmatter   String    @default("{}")
+  fileCount     Int       @default(0)
+  totalBytes    Int       @default(0)
+  qualityScore  Int       @default(0)
+  securityScore Int       @default(100)
+  riskLevel     String    @default("LOW")
+  scanFindings  String    @default("[]")
+  compatibility String    @default("{}")
+  status        String    @default("QUARANTINED") // PUBLISHED | QUARANTINED | REJECTED
+  incomplete    Boolean   @default(false)
+  license       String?
+  trustLevel    String    @default("IN_REVIEW")
+  scannerVersion String   @default("1")
+  sourceUrl     String
+  fetchedAt     DateTime  @default(now())
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  skill         Skill     @relation("SkillVersions", fields: [skillId], references: [id], onDelete: Cascade)
+  currentFor    Skill?    @relation("CurrentVersion")
+
+  @@unique([skillId, contentHash])
+  @@index([skillId, createdAt])
+  @@index([skillId, status, publishedAt])
+  @@index([status])
+  @@index([status, publishedAt])
+}
+
+model SkillHost {
+  id          String   @id @default(cuid())
+  skillId     String
+  host        String
+  status      String // VERIFIED | EXPORT_ONLY | UNSUPPORTED
+  notes       String   @default("")
+  validatedAt DateTime @default(now())
+  skill       Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([skillId, host])
+  @@index([host, status])
+}
+
+model LibraryItem {
+  id        String   @id @default(cuid())
+  userId    String
+  skillId   String
+  state     String   @default("SAVED") // SAVED | IGNORED
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+  @@index([userId])
+  @@index([skillId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  skillId   String
+  rating    Int
+  body      String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+  @@index([skillId])
+}
+
+model Report {
+  id         String    @id @default(cuid())
+  userId     String?
+  skillId    String
+  reason     String
+  details    String    @default("")
+  status     String    @default("OPEN") // OPEN | RESOLVED | DISMISSED
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  skill      Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([skillId])
+}
+
+model Installation {
+  id           String   @id @default(cuid())
+  userId       String?
+  machineId    String
+  agentHost    String
+  skillId      String
+  versionLabel String
+  contentHash  String
+  installedPath String
+  status       String   @default("INSTALLED") // INSTALLED | ROLLED_BACK | REMOVED
+  installedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  skill        Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([machineId, agentHost, skillId])
+  @@index([userId])
+  @@index([skillId])
+}
+
+model SyncRun {
+  id          String    @id @default(cuid())
+  sourceId    String
+  status      String // RUNNING | OK | ERROR
+  trigger     String    @default("scheduler") // scheduler | manual | cli
+  found       Int       @default(0)
+  created     Int       @default(0)
+  updated     Int       @default(0)
+  unchanged   Int       @default(0)
+  quarantined Int       @default(0)
+  archived    Int       @default(0)
+  error       String?
+  startedAt   DateTime  @default(now())
+  finishedAt  DateTime?
+  source      Source    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, startedAt])
+  @@index([status])
+}
+
+model Discovery {
+  id          String    @id @default(cuid())
+  sourceId    String
+  externalId  String
+  title       String
+  url         String
+  summary     String    @default("")
+  publishedAt DateTime?
+  status      String    @default("NEW") // NEW | APPROVED | REJECTED
+  detectedAt  DateTime  @default(now())
+  reviewedAt  DateTime?
+  source      Source    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, externalId])
+  @@index([status])
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  type        String // SYNC_SOURCE | SYNC_DUE
+  payload     String    @default("{}")
+  status      String    @default("PENDING") // PENDING | RUNNING | DONE | FAILED
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  runAt       DateTime  @default(now())
+  lockedAt    DateTime?
+  lockedBy    String?
+  dedupeKey   String?
+  /** Unique while the job is open; null after DONE/FAILED. */
+  openKey     String?   @unique
+  lastError   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, runAt])
+  @@index([dedupeKey])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  String   @default("{}")
+  ip        String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([entity, entityId])
+}

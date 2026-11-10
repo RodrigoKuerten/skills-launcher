@@ -1,0 +1,37 @@
+{
+  "name": "@skills-hub/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/tauri-with-msvc.mjs dev",
+    "build": "node scripts/tauri-with-msvc.mjs build",
+    "build:exe": "node scripts/tauri-with-msvc.mjs build --no-bundle",
+    "ui:dev": "vite --port 1420",
+    "ui:build": "vite build",
+    "ui:preview": "vite preview --port 1420",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "icons": "node scripts/tauri-with-msvc.mjs icon src-tauri/icon-source.png"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.6.0",
+    "lucide-react": "^1.70.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "@tauri-apps/cli": "^2.12.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.1.1",
+    "jsdom": "^27.0.0",
+    "tailwindcss": "^4.3.5",
+    "typescript": "5.9.3",
+    "vite": "^7.2.2",
+    "vitest": "4.1.12"
+  }
+}

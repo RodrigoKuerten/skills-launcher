@@ -1,0 +1,46 @@
+{
+  "name": "@skills-hub/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/with-env.mjs dev",
+    "build": "prisma generate --schema prisma/schema.prisma && node scripts/with-env.mjs build",
+    "start": "node scripts/with-env.mjs start",
+    "db:push": "prisma db push --schema prisma/schema.prisma",
+    "db:seed": "tsx prisma/seed.ts",
+    "sync": "tsx scripts/sync.ts",
+    "postinstall": "prisma generate --schema prisma/schema.prisma",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.2",
+    "@skills-hub/core": "*",
+    "deepmerge-ts": "8.0.2",
+    "effect": "3.20.1",
+    "fflate": "^0.8.3",
+    "geist": "^1.9.2",
+    "lucide-react": "^1.70.0",
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "undici": "^8.12.4",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
+  },
+  "overrides": {
+    "deepmerge-ts": "8.0.2",
+    "effect": "3.20.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.5",
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "prisma": "6.19.2",
+    "tailwindcss": "^4.3.5",
+    "tsx": "^4.23.15",
+    "typescript": "5.9.3"
+  }
+}
