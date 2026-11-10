@@ -14,7 +14,11 @@ pub struct LocalDirAdapter;
 
 #[async_trait]
 impl super::SourceAdapter for LocalDirAdapter {
-    async fn fetch(&self, source: &Source, _ctx: &SourceContext<'_>) -> AppResult<SourceSyncResult> {
+    async fn fetch(
+        &self,
+        source: &Source,
+        _ctx: &SourceContext<'_>,
+    ) -> AppResult<SourceSyncResult> {
         let source = source.clone();
         let result = tokio::task::spawn_blocking(move || read_local_dir(&source))
             .await
@@ -24,10 +28,13 @@ impl super::SourceAdapter for LocalDirAdapter {
 }
 
 pub(crate) fn read_local_dir(source: &Source) -> AppResult<SourceSyncResult> {
-    let root = std::fs::canonicalize(&source.url)
-        .map_err(|error| AppError::Validation(format!("Local source is not accessible: {error}")))?;
+    let root = std::fs::canonicalize(&source.url).map_err(|error| {
+        AppError::Validation(format!("Local source is not accessible: {error}"))
+    })?;
     if !root.is_dir() {
-        return Err(AppError::Validation("Local source is not a directory".into()));
+        return Err(AppError::Validation(
+            "Local source is not a directory".into(),
+        ));
     }
 
     let mut all_files: Vec<(String, String)> = Vec::new();
@@ -36,7 +43,9 @@ pub(crate) fn read_local_dir(source: &Source) -> AppResult<SourceSyncResult> {
         .follow_links(false)
         .into_iter();
     while let Some(entry) = entries.next() {
-        let entry = entry.map_err(|error| AppError::Validation(format!("Could not read local source: {error}")))?;
+        let entry = entry.map_err(|error| {
+            AppError::Validation(format!("Could not read local source: {error}"))
+        })?;
         if entry.file_type().is_symlink() {
             continue;
         }
@@ -83,11 +92,21 @@ pub(crate) fn read_local_dir(source: &Source) -> AppResult<SourceSyncResult> {
     })
 }
 
-fn skills_from_files(all_files: Vec<(String, String)>, source: &Source) -> AppResult<Vec<DiscoveredSkill>> {
+fn skills_from_files(
+    all_files: Vec<(String, String)>,
+    source: &Source,
+) -> AppResult<Vec<DiscoveredSkill>> {
     let mut skill_roots: Vec<String> = all_files
         .iter()
-        .filter(|(path, _)| path.eq_ignore_ascii_case("SKILL.md") || path.to_ascii_lowercase().ends_with("/skill.md"))
-        .map(|(path, _)| path.rsplit_once('/').map(|(root, _)| root.to_string()).unwrap_or_default())
+        .filter(|(path, _)| {
+            path.eq_ignore_ascii_case("SKILL.md")
+                || path.to_ascii_lowercase().ends_with("/skill.md")
+        })
+        .map(|(path, _)| {
+            path.rsplit_once('/')
+                .map(|(root, _)| root.to_string())
+                .unwrap_or_default()
+        })
         .collect();
     skill_roots.sort();
     skill_roots.dedup();
@@ -128,13 +147,25 @@ fn skills_from_files(all_files: Vec<(String, String)>, source: &Source) -> AppRe
                 )));
             }
         }
-        let root_name = skill_root.rsplit('/').next().unwrap_or(&skill_root).to_string();
-        let repository_url = format!("{}/{}", source.url.trim_end_matches(['/', '\\']), skill_root);
+        let root_name = skill_root
+            .rsplit('/')
+            .next()
+            .unwrap_or(&skill_root)
+            .to_string();
+        let repository_url = format!(
+            "{}/{}",
+            source.url.trim_end_matches(['/', '\\']),
+            skill_root
+        );
         if let Some(skill) = parse_skill_dir(
             &root_name,
             selected,
             SkillMeta {
-                path: if skill_root.is_empty() { ".".into() } else { skill_root.clone() },
+                path: if skill_root.is_empty() {
+                    ".".into()
+                } else {
+                    skill_root.clone()
+                },
                 name_hint: root_name.clone(),
                 author: source.author.clone(),
                 repository_url,

@@ -267,8 +267,10 @@ pub struct Backup {
     pub skill_id: Option<String>,
     pub host: Option<String>,
     pub path: String,
+    pub version_id: Option<String>,
     pub version_label: Option<String>,
     pub content_hash: Option<String>,
+    pub reason: String,
     pub created_at: String,
 }
 
@@ -312,7 +314,6 @@ pub struct Settings {
     pub auto_sync: bool,
     pub auto_sync_interval_minutes: i64,
     pub github_token_set: bool,
-    pub remote_catalog_url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -322,7 +323,6 @@ pub struct SettingsInput {
     pub auto_sync: Option<bool>,
     pub auto_sync_interval_minutes: Option<i64>,
     pub github_token: Option<String>,
-    pub remote_catalog_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

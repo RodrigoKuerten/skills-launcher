@@ -77,7 +77,11 @@ pub async fn sync_source(
         "manual",
     )
     .await?;
+    let auto = crate::agents::auto_update(&state.db, &state.data_dir).unwrap_or_default();
     let _ = app.emit("catalog-updated", &summary);
+    if !auto.is_empty() {
+        let _ = app.emit("library-updated", &auto);
+    }
     Ok(summary)
 }
 
@@ -91,14 +95,13 @@ pub async fn sync_all_sources(
         .lock()
         .map_err(|_| AppError::Other("Token lock poisoned".into()))?
         .clone();
-    let summaries = catalog::sync_all(
-        &state.db,
-        &state.http,
-        token.as_deref(),
-        &state.temp_dir,
-    )
-    .await?;
+    let summaries =
+        catalog::sync_all(&state.db, &state.http, token.as_deref(), &state.temp_dir).await?;
+    let auto = crate::agents::auto_update(&state.db, &state.data_dir).unwrap_or_default();
     let _ = app.emit("catalog-updated", &summaries);
+    if !auto.is_empty() {
+        let _ = app.emit("library-updated", &auto);
+    }
     Ok(summaries)
 }
 

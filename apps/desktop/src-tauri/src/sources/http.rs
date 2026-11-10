@@ -28,7 +28,10 @@ impl super::SourceAdapter for HttpJsonAdapter {
                 response.status()
             )));
         }
-        if response.content_length().is_some_and(|length| length > MAX_CATALOG_BYTES as u64) {
+        if response
+            .content_length()
+            .is_some_and(|length| length > MAX_CATALOG_BYTES as u64)
+        {
             return Err(AppError::Validation("Catalog is larger than 20 MB".into()));
         }
         let mut stream = response.bytes_stream();
@@ -72,12 +75,13 @@ impl super::SourceAdapter for HttpJsonAdapter {
             if source_license.is_none() {
                 source_license = license.clone();
             }
-            let files_value = item
-                .get("files")
-                .and_then(Value::as_array)
-                .ok_or_else(|| AppError::Validation(format!("Skill '{name}' has no files array")))?;
+            let files_value = item.get("files").and_then(Value::as_array).ok_or_else(|| {
+                AppError::Validation(format!("Skill '{name}' has no files array"))
+            })?;
             if files_value.len() > MAX_FILES {
-                return Err(AppError::Validation(format!("Skill '{name}' has too many files")));
+                return Err(AppError::Validation(format!(
+                    "Skill '{name}' has too many files"
+                )));
             }
             let mut files: Vec<SkillFile> = Vec::new();
             let mut total = 0usize;
@@ -91,7 +95,9 @@ impl super::SourceAdapter for HttpJsonAdapter {
                 let content = file_value
                     .get("content")
                     .and_then(Value::as_str)
-                    .ok_or_else(|| AppError::Validation("Catalog file is missing content".into()))?;
+                    .ok_or_else(|| {
+                        AppError::Validation("Catalog file is missing content".into())
+                    })?;
                 total += content.len();
                 if total > MAX_SKILL_BYTES {
                     return Err(AppError::Validation(format!(

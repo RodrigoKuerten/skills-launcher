@@ -62,9 +62,11 @@ async fn clone_and_scan(
     clone_source.kind = SourceKind::LocalDir;
     clone_source.url = target.to_string_lossy().to_string();
     let scan_source = clone_source.clone();
-    let mut skills = tokio::task::spawn_blocking(move || super::local::read_local_dir(&scan_source))
-        .await
-        .map_err(|error| AppError::Other(format!("Git scanner failed: {error}")))??.skills;
+    let mut skills =
+        tokio::task::spawn_blocking(move || super::local::read_local_dir(&scan_source))
+            .await
+            .map_err(|error| AppError::Other(format!("Git scanner failed: {error}")))??
+            .skills;
     let path = path.unwrap_or_default().trim_matches('/').to_string();
     if !path.is_empty() {
         skills.retain(|skill| {
@@ -74,11 +76,17 @@ async fn clone_and_scan(
     for skill in &mut skills {
         skill.source_url = source.url.clone();
         skill.repository_url = repo_url(source, branch, &skill.source_path);
-        skill.commit_ref = if branch.is_empty() { None } else { Some(branch.to_string()) };
-        skill.version_label = skill
-            .version_label
-            .clone()
-            .or_else(|| skill.commit_ref.as_ref().map(|value| value.chars().take(8).collect()));
+        skill.commit_ref = if branch.is_empty() {
+            None
+        } else {
+            Some(branch.to_string())
+        };
+        skill.version_label = skill.version_label.clone().or_else(|| {
+            skill
+                .commit_ref
+                .as_ref()
+                .map(|value| value.chars().take(8).collect())
+        });
     }
     Ok(SourceSyncResult {
         skills,
@@ -104,12 +112,11 @@ fn validate_branch(branch: &str) -> AppResult<()> {
     if branch.len() > 200
         || branch.starts_with('-')
         || branch.contains("..")
-        || !branch
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '/' | '_' | '-' | '.'))
+        || !branch.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '/' | '_' | '-' | '.')
+        })
     {
         return Err(AppError::Validation("Invalid git branch".into()));
     }
     Ok(())
 }
-

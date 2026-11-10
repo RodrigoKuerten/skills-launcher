@@ -313,7 +313,11 @@ fn upsert_skill(
 fn unique_slug(tx: &Transaction<'_>, name: &str, source_path: &str) -> AppResult<String> {
     let base = slugify(name);
     let exists: Option<String> = tx
-        .query_row("SELECT id FROM skills WHERE slug=?1", params![base], |row| row.get(0))
+        .query_row(
+            "SELECT id FROM skills WHERE slug=?1",
+            params![base],
+            |row| row.get(0),
+        )
         .optional()?;
     if exists.is_none() {
         return Ok(base);
@@ -321,7 +325,11 @@ fn unique_slug(tx: &Transaction<'_>, name: &str, source_path: &str) -> AppResult
     let suffix = hex::encode(&sha2::Sha256::digest(source_path.as_bytes())[..3]);
     let candidate = format!("{base}-{suffix}");
     let exists: Option<String> = tx
-        .query_row("SELECT id FROM skills WHERE slug=?1", params![candidate], |row| row.get(0))
+        .query_row(
+            "SELECT id FROM skills WHERE slug=?1",
+            params![candidate],
+            |row| row.get(0),
+        )
         .optional()?;
     if exists.is_none() {
         return Ok(candidate);
@@ -360,7 +368,13 @@ fn fail_sync(db: &Db, run_id: &str, source: &Source, error: &AppError) -> AppRes
         )?;
         Ok(())
     })?;
-    let _ = db.log_operation("sync", None, None, "error", Some(&format!("{}: {}", source.name, message)));
+    let _ = db.log_operation(
+        "sync",
+        None,
+        None,
+        "error",
+        Some(&format!("{}: {}", source.name, message)),
+    );
     Ok(())
 }
 
@@ -457,8 +471,12 @@ fn map_skill_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SkillSummary> {
             created_at: row.get::<_, Option<String>>(24)?.unwrap_or_default(),
             files_count,
             security_score: row.get::<_, Option<i64>>(26)?.unwrap_or(100),
-            risk_level: row.get::<_, Option<String>>(27)?.unwrap_or_else(|| "LOW".into()),
-            status: row.get::<_, Option<String>>(28)?.unwrap_or_else(|| "PUBLISHED".into()),
+            risk_level: row
+                .get::<_, Option<String>>(27)?
+                .unwrap_or_else(|| "LOW".into()),
+            status: row
+                .get::<_, Option<String>>(28)?
+                .unwrap_or_else(|| "PUBLISHED".into()),
             commit_ref: row.get(29)?,
             findings,
         })
@@ -476,7 +494,8 @@ fn map_skill_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SkillSummary> {
         repository_url: row.get(7)?,
         source_id: row.get(8)?,
         source_name: row.get(9)?,
-        source_kind: SourceKind::from_str(&row.get::<_, String>(10)?).unwrap_or(SourceKind::HttpJson),
+        source_kind: SourceKind::from_str(&row.get::<_, String>(10)?)
+            .unwrap_or(SourceKind::HttpJson),
         trust: row.get(11)?,
         risk_level: row.get(12)?,
         security_score: row.get(13)?,
@@ -492,7 +511,8 @@ fn map_skill_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SkillSummary> {
 }
 
 fn load_hosts(conn: &Connection, skill_id: &str) -> AppResult<Vec<SkillHost>> {
-    let mut statement = conn.prepare("SELECT host,status,notes FROM skill_hosts WHERE skill_id=?1 ORDER BY host")?;
+    let mut statement =
+        conn.prepare("SELECT host,status,notes FROM skill_hosts WHERE skill_id=?1 ORDER BY host")?;
     let rows = statement.query_map(params![skill_id], |row| {
         Ok(SkillHost {
             host: row.get(0)?,
@@ -614,9 +634,11 @@ pub fn list_updates(db: &Db) -> AppResult<Vec<UpdateItem>> {
     let installations = list_installations(db)?;
     Ok(installations
         .into_iter()
-        .filter(|installation| installation.status == "INSTALLED"
-            && installation.latest_version_id.is_some()
-            && installation.version_id.as_deref() != installation.latest_version_id.as_deref())
+        .filter(|installation| {
+            installation.status == "INSTALLED"
+                && installation.latest_version_id.is_some()
+                && installation.version_id.as_deref() != installation.latest_version_id.as_deref()
+        })
         .map(|installation| UpdateItem {
             change_summary: "A newer version is available".into(),
             installation,
@@ -668,7 +690,8 @@ mod tests {
     use serde_json::json;
 
     fn fixture() -> std::path::PathBuf {
-        let root = std::env::temp_dir().join(format!("skills-launcher-test-{}", uuid::Uuid::new_v4()));
+        let root =
+            std::env::temp_dir().join(format!("skills-launcher-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(root.join("my-skill")).unwrap();
         std::fs::write(
             root.join("my-skill").join("SKILL.md"),
@@ -731,7 +754,8 @@ mod tests {
     #[tokio::test]
     #[ignore = "hits the real GitHub API"]
     async fn github_source_sync_smoke() {
-        let data = std::env::temp_dir().join(format!("skills-launcher-gh-{}", uuid::Uuid::new_v4()));
+        let data =
+            std::env::temp_dir().join(format!("skills-launcher-gh-{}", uuid::Uuid::new_v4()));
         let db = Db::open(&data).unwrap();
         let source = db
             .list_sources()
@@ -875,7 +899,13 @@ pub fn delete_source(db: &Db, id: &str) -> AppResult<()> {
         )?;
         Ok(())
     })?;
-    let _ = db.log_operation("source_remove", None, None, "success", Some("Source removed"));
+    let _ = db.log_operation(
+        "source_remove",
+        None,
+        None,
+        "success",
+        Some("Source removed"),
+    );
     Ok(())
 }
 
@@ -893,7 +923,9 @@ fn normalize_source(mut input: SourceInput) -> AppResult<SourceInput> {
     input.description = input.description.trim().to_string();
     input.trust = input.trust.trim().to_ascii_uppercase();
     if input.name.is_empty() || input.name.len() > 120 {
-        return Err(AppError::Validation("Source name must be 1–120 characters".into()));
+        return Err(AppError::Validation(
+            "Source name must be 1–120 characters".into(),
+        ));
     }
     if input.author.len() > 120 || input.description.len() > 2000 {
         return Err(AppError::Validation("Source details are too long".into()));
@@ -902,19 +934,26 @@ fn normalize_source(mut input: SourceInput) -> AppResult<SourceInput> {
         return Err(AppError::Validation("Invalid source trust level".into()));
     }
     if !(30..=10080).contains(&input.interval_minutes) {
-        return Err(AppError::Validation("Sync interval must be 30–10080 minutes".into()));
+        return Err(AppError::Validation(
+            "Sync interval must be 30–10080 minutes".into(),
+        ));
     }
     sources::validate_source_url(&input.kind, &input.url)?;
     if matches!(input.kind, SourceKind::LocalDir | SourceKind::Zip) {
-        let path = std::fs::canonicalize(&input.url)
-            .map_err(|error| AppError::Validation(format!("Source path is not accessible: {error}")))?;
+        let path = std::fs::canonicalize(&input.url).map_err(|error| {
+            AppError::Validation(format!("Source path is not accessible: {error}"))
+        })?;
         input.url = path.to_string_lossy().to_string();
     }
     if !input.config.is_object() {
-        return Err(AppError::Validation("Source configuration must be a JSON object".into()));
+        return Err(AppError::Validation(
+            "Source configuration must be a JSON object".into(),
+        ));
     }
     if input.config.to_string().len() > 20_000 {
-        return Err(AppError::Validation("Source configuration is too large".into()));
+        return Err(AppError::Validation(
+            "Source configuration is too large".into(),
+        ));
     }
     Ok(input)
 }
@@ -951,7 +990,9 @@ pub fn import_sources(db: &Db, json_text: &str) -> AppResult<Vec<Source>> {
     let export: SourceExport = serde_json::from_str(json_text)
         .map_err(|error| AppError::Validation(format!("Invalid source export: {error}")))?;
     if export.format != "skills-launcher-sources" || export.version != 1 {
-        return Err(AppError::Validation("Unsupported source export format".into()));
+        return Err(AppError::Validation(
+            "Unsupported source export format".into(),
+        ));
     }
     let mut imported = Vec::new();
     for input in export.sources {
@@ -981,4 +1022,3 @@ pub fn import_sources(db: &Db, json_text: &str) -> AppResult<Vec<Source>> {
     );
     Ok(imported)
 }
-

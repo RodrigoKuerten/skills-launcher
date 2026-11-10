@@ -1,6 +1,4 @@
-use crate::domain::{
-    DiscoveredSkill, SkillFile, Source, SourceKind, SourceSyncResult,
-};
+use crate::domain::{DiscoveredSkill, SkillFile, Source, SourceKind, SourceSyncResult};
 use crate::error::{AppError, AppResult};
 use async_trait::async_trait;
 use reqwest::Client;
@@ -57,7 +55,11 @@ pub struct SkillMeta {
     pub version_label: Option<String>,
 }
 
-pub fn parse_skill_dir(root_name: &str, files: Vec<SkillFile>, meta: SkillMeta) -> Option<DiscoveredSkill> {
+pub fn parse_skill_dir(
+    root_name: &str,
+    files: Vec<SkillFile>,
+    meta: SkillMeta,
+) -> Option<DiscoveredSkill> {
     let skill_file = files
         .iter()
         .find(|file| file.path.eq_ignore_ascii_case("SKILL.md"))?;
@@ -68,7 +70,13 @@ pub fn parse_skill_dir(root_name: &str, files: Vec<SkillFile>, meta: SkillMeta) 
     let name = frontmatter_string(&frontmatter, "name")
         .map(|value| clean_inline(&value))
         .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| humanize(if meta.name_hint.is_empty() { root_name } else { &meta.name_hint }));
+        .unwrap_or_else(|| {
+            humanize(if meta.name_hint.is_empty() {
+                root_name
+            } else {
+                &meta.name_hint
+            })
+        });
     let description = frontmatter_string(&frontmatter, "description")
         .map(|value| clean_inline(&value))
         .filter(|value| !value.is_empty())
@@ -178,9 +186,28 @@ fn is_reserved_windows_name(component: &str) -> bool {
         .to_ascii_lowercase();
     matches!(
         stem.as_str(),
-        "con" | "prn" | "aux" | "nul" | "com1" | "com2" | "com3" | "com4" | "com5" | "com6"
-            | "com7" | "com8" | "com9" | "lpt1" | "lpt2" | "lpt3" | "lpt4" | "lpt5" | "lpt6"
-            | "lpt7" | "lpt8" | "lpt9"
+        "con"
+            | "prn"
+            | "aux"
+            | "nul"
+            | "com1"
+            | "com2"
+            | "com3"
+            | "com4"
+            | "com5"
+            | "com6"
+            | "com7"
+            | "com8"
+            | "com9"
+            | "lpt1"
+            | "lpt2"
+            | "lpt3"
+            | "lpt4"
+            | "lpt5"
+            | "lpt6"
+            | "lpt7"
+            | "lpt8"
+            | "lpt9"
     )
 }
 
@@ -326,7 +353,11 @@ fn truncate_chars(value: &str, max: usize) -> String {
 fn first_paragraph(body: &str) -> Option<String> {
     for line in body.lines() {
         let line = line.trim();
-        if line.is_empty() || line.starts_with('#') || line.starts_with("```") || line.starts_with("---") {
+        if line.is_empty()
+            || line.starts_with('#')
+            || line.starts_with("```")
+            || line.starts_with("---")
+        {
             continue;
         }
         return Some(clean_inline(line.trim_start_matches(['-', '*', '>', ' '])));
@@ -377,18 +408,86 @@ fn frontmatter_string(value: &serde_yaml::Value, key: &str) -> Option<String> {
 fn classify(text: &str) -> Option<String> {
     let text = text.to_ascii_lowercase();
     let rules: &[(&str, &[&str])] = &[
-        ("security", &["security", "threat", "vulnerab", "owasp", "auth", "secret"]),
-        ("frontend", &["react", "frontend", "css", "tailwind", "vue", "angular", "ui "]),
-        ("backend", &["backend", "api", "server", "endpoint", "spring", "express"]),
-        ("design", &["design", "ux", "accessib", "figma", "typography"]),
-        ("architecture", &["architecture", "refactor", "system design", "monorepo"]),
-        ("devops", &["docker", "kubernetes", "ci/cd", "deploy", "terraform", "github actions"]),
-        ("automation", &["automat", "workflow", "agent loop", "orchestrat"]),
-        ("ai", &["llm", "prompt", "rag", "embedding", "agent", "openai", "claude"]),
-        ("database", &["database", "sql", "postgres", "sqlite", "migration", "query"]),
-        ("testing", &["test", "tdd", "playwright", "vitest", "jest", "e2e", "coverage"]),
-        ("research", &["research", "source", "citation", "investigat"]),
-        ("productivity", &["plan", "document", "writing", "review", "workflow"]),
+        (
+            "security",
+            &["security", "threat", "vulnerab", "owasp", "auth", "secret"],
+        ),
+        (
+            "frontend",
+            &[
+                "react", "frontend", "css", "tailwind", "vue", "angular", "ui ",
+            ],
+        ),
+        (
+            "backend",
+            &["backend", "api", "server", "endpoint", "spring", "express"],
+        ),
+        (
+            "design",
+            &["design", "ux", "accessib", "figma", "typography"],
+        ),
+        (
+            "architecture",
+            &["architecture", "refactor", "system design", "monorepo"],
+        ),
+        (
+            "devops",
+            &[
+                "docker",
+                "kubernetes",
+                "ci/cd",
+                "deploy",
+                "terraform",
+                "github actions",
+            ],
+        ),
+        (
+            "automation",
+            &["automat", "workflow", "agent loop", "orchestrat"],
+        ),
+        (
+            "ai",
+            &[
+                "llm",
+                "prompt",
+                "rag",
+                "embedding",
+                "agent",
+                "openai",
+                "claude",
+            ],
+        ),
+        (
+            "database",
+            &[
+                "database",
+                "sql",
+                "postgres",
+                "sqlite",
+                "migration",
+                "query",
+            ],
+        ),
+        (
+            "testing",
+            &[
+                "test",
+                "tdd",
+                "playwright",
+                "vitest",
+                "jest",
+                "e2e",
+                "coverage",
+            ],
+        ),
+        (
+            "research",
+            &["research", "source", "citation", "investigat"],
+        ),
+        (
+            "productivity",
+            &["plan", "document", "writing", "review", "workflow"],
+        ),
     ];
     let mut best: Option<(&str, usize)> = None;
     for (category, terms) in rules {

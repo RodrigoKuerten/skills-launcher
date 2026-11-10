@@ -57,7 +57,10 @@ struct OrgOwner {
 impl super::SourceAdapter for GithubRepoAdapter {
     async fn fetch(&self, source: &Source, ctx: &SourceContext<'_>) -> AppResult<SourceSyncResult> {
         let config = config_for(source)?;
-        let repo = config.repo.clone().unwrap_or_else(|| repo_from_url(&source.url));
+        let repo = config
+            .repo
+            .clone()
+            .unwrap_or_else(|| repo_from_url(&source.url));
         validate_repo(&repo)?;
         let author = repo.split('/').next().unwrap_or("").to_string();
         let result = fetch_repo(
@@ -175,10 +178,18 @@ async fn fetch_repo(
 
     let bytes = match download_codeload(ctx, repo, &branch).await? {
         Some(bytes) => bytes,
-        None if explicit_branch.is_none() && branch == "main" => download_codeload(ctx, repo, "master")
-            .await?
-            .ok_or_else(|| AppError::NotFound("GitHub repository has no main or master branch".into()))?,
-        None => return Err(AppError::NotFound(format!("GitHub branch '{branch}' was not found"))),
+        None if explicit_branch.is_none() && branch == "main" => {
+            download_codeload(ctx, repo, "master")
+                .await?
+                .ok_or_else(|| {
+                    AppError::NotFound("GitHub repository has no main or master branch".into())
+                })?
+        }
+        None => {
+            return Err(AppError::NotFound(format!(
+                "GitHub branch '{branch}' was not found"
+            )))
+        }
     };
     let license = meta
         .as_ref()
@@ -243,17 +254,26 @@ async fn download_codeload(
                 "GitHub rate limit reached. Add a token in Settings or try again later.".into(),
             ));
         }
-        return Err(AppError::Other(format!("GitHub archive request failed ({status})")));
+        return Err(AppError::Other(format!(
+            "GitHub archive request failed ({status})"
+        )));
     }
-    if response.content_length().is_some_and(|length| length > MAX_ZIP_BYTES) {
-        return Err(AppError::Validation("GitHub archive is larger than 64 MB".into()));
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_ZIP_BYTES)
+    {
+        return Err(AppError::Validation(
+            "GitHub archive is larger than 64 MB".into(),
+        ));
     }
     let mut stream = response.bytes_stream();
     let mut bytes = Vec::new();
     while let Some(chunk) = stream.next().await {
         let chunk = chunk?;
         if (bytes.len() as u64 + chunk.len() as u64) > MAX_ZIP_BYTES {
-            return Err(AppError::Validation("GitHub archive is larger than 64 MB".into()));
+            return Err(AppError::Validation(
+                "GitHub archive is larger than 64 MB".into(),
+            ));
         }
         bytes.extend_from_slice(&chunk);
     }
@@ -276,14 +296,18 @@ async fn github_json<T: for<'de> Deserialize<'de>>(
     let status = response.status();
     if !status.is_success() {
         if status.as_u16() == 404 {
-            return Err(AppError::NotFound("GitHub repository or organization was not found".into()));
+            return Err(AppError::NotFound(
+                "GitHub repository or organization was not found".into(),
+            ));
         }
         if status.as_u16() == 403 || status.as_u16() == 429 {
             return Err(AppError::Other(
                 "GitHub rate limit reached. Add a token in Settings or try again later.".into(),
             ));
         }
-        return Err(AppError::Other(format!("GitHub API request failed ({status})")));
+        return Err(AppError::Other(format!(
+            "GitHub API request failed ({status})"
+        )));
     }
     response
         .json::<T>()
@@ -310,16 +334,22 @@ fn repo_from_url(url: &str) -> String {
 fn org_from_url(url: &str) -> String {
     Url::parse(url)
         .ok()
-        .and_then(|url| url.path().trim_matches('/').split('/').next().map(str::to_string))
+        .and_then(|url| {
+            url.path()
+                .trim_matches('/')
+                .split('/')
+                .next()
+                .map(str::to_string)
+        })
         .unwrap_or_default()
 }
 
 fn validate_owner(owner: &str) -> AppResult<()> {
     if owner.is_empty()
         || owner.len() > 100
-        || !owner
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.'))
+        || !owner.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.')
+        })
     {
         return Err(AppError::Validation("Invalid GitHub organization".into()));
     }
@@ -336,12 +366,11 @@ fn validate_repo(repo: &str) -> AppResult<()> {
     validate_owner(owner)?;
     if name.len() > 100
         || name.starts_with('.')
-        || !name
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.'))
+        || !name.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.')
+        })
     {
         return Err(AppError::Validation("Invalid GitHub repository".into()));
     }
     Ok(())
 }
-

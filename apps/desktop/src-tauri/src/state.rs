@@ -9,6 +9,7 @@ use std::time::Duration;
 pub struct AppState {
     pub db: Db,
     pub http: Client,
+    pub data_dir: PathBuf,
     pub temp_dir: PathBuf,
     pub github_token: Mutex<Option<String>>,
     pub grants: Mutex<HashSet<PathBuf>>,
@@ -26,6 +27,7 @@ impl AppState {
         Ok(Self {
             db,
             http,
+            data_dir: data_dir.to_path_buf(),
             temp_dir,
             github_token: Mutex::new(None),
             grants: Mutex::new(HashSet::new()),

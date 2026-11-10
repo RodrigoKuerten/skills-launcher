@@ -1,4 +1,7 @@
-use crate::commands::{bootstrap_with_state, categories_for_state, settings_with_token, sources_for_state, stats_for_state};
+use crate::commands::{
+    bootstrap_with_state, categories_for_state, settings_with_token, sources_for_state,
+    stats_for_state,
+};
 use crate::domain::{Bootstrap, Category, Settings, SettingsInput, Source, Stats};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
@@ -56,10 +59,14 @@ pub fn open_url(url: String) -> AppResult<()> {
     }
     let parsed = url::Url::parse(&url)?;
     if parsed.scheme() != "https" {
-        return Err(AppError::Validation("Only HTTPS links can be opened".into()));
+        return Err(AppError::Validation(
+            "Only HTTPS links can be opened".into(),
+        ));
     }
     if !parsed.username().is_empty() || parsed.password().is_some() {
-        return Err(AppError::Validation("Links with embedded credentials are not allowed".into()));
+        return Err(AppError::Validation(
+            "Links with embedded credentials are not allowed".into(),
+        ));
     }
     open::that(parsed.as_str()).map_err(|error| AppError::Other(error.to_string()))
 }

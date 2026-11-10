@@ -65,5 +65,6 @@ The scanner checks prompt-injection language, exfiltration/destructive commands,
 ## Known limits
 
 - Source config editing is limited to the fields exposed in the UI; GitHub branch/subpath editing uses the source form.
-- Auto-sync scheduler and background job queue are not part of this slice.
+- Auto-sync runs on a 5-minute scheduler when enabled in Settings and the source has `autoSync`. There is no durable
+  job queue or retry/backoff yet.
 - Windows runtime is validated first. Linux and macOS adapters are code-complete but not yet exercised on real runners.
