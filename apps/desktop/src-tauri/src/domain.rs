@@ -129,6 +129,15 @@ pub struct Category {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct Finding {
+    pub severity: String,
+    pub code: String,
+    pub message: String,
+    pub file: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VersionSummary {
     pub id: String,
     pub version_label: String,
@@ -140,6 +149,8 @@ pub struct VersionSummary {
     pub risk_level: String,
     pub status: String,
     pub commit_ref: Option<String>,
+    #[serde(default)]
+    pub findings: Vec<Finding>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -195,6 +206,8 @@ pub struct SkillQuery {
     pub category: Option<String>,
     pub source_id: Option<String>,
     pub host: Option<String>,
+    pub risk: Option<String>,
+    pub trust: Option<String>,
     pub sort: Option<String>,
     pub page: Option<i64>,
     pub page_size: Option<i64>,
@@ -244,6 +257,19 @@ pub struct Installation {
     pub updated_at: String,
     pub latest_version_id: Option<String>,
     pub latest_version_label: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Backup {
+    pub id: String,
+    pub installation_id: Option<String>,
+    pub skill_id: Option<String>,
+    pub host: Option<String>,
+    pub path: String,
+    pub version_label: Option<String>,
+    pub content_hash: Option<String>,
+    pub created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
