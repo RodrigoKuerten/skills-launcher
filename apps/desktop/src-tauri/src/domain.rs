@@ -78,7 +78,7 @@ pub struct SourceInput {
     pub config: Value,
     #[serde(default = "default_trust")]
     pub trust: String,
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub enabled: bool,
     #[serde(default = "default_true")]
     pub auto_sync: bool,

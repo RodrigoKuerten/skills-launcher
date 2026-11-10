@@ -226,6 +226,7 @@ pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredS
     skill_roots.truncate(MAX_SKILLS);
 
     let mut skills = Vec::new();
+    let mut total_read = 0usize;
     for root in skill_roots {
         let prefix = if root.is_empty() {
             String::new()
@@ -254,6 +255,7 @@ pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredS
         selected.sort_by(|a, b| a.1.cmp(&b.1));
         let mut skill_bytes = 0usize;
         let mut files = Vec::new();
+        let mut seen_paths = std::collections::BTreeSet::new();
         for (index, path, _) in selected {
             let Some(safe) = safe_relative_path(&path) else {
                 continue;
@@ -265,6 +267,11 @@ pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredS
                 )
             }) {
                 continue;
+            }
+            if !seen_paths.insert(safe.to_ascii_lowercase()) {
+                return Err(AppError::Validation(format!(
+                    "Skill contains case-colliding paths: {safe}"
+                )));
             }
             let entry = archive
                 .by_index(index)
@@ -285,6 +292,12 @@ pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredS
             if buffer.len() > MAX_FILE_BYTES {
                 return Err(AppError::Validation(
                     "ZIP entry exceeds the file size limit".into(),
+                ));
+            }
+            total_read += buffer.len();
+            if total_read > MAX_ARCHIVE_BYTES as usize {
+                return Err(AppError::Validation(
+                    "ZIP decompression exceeded the archive budget".into(),
                 ));
             }
             let Some(content) = decode_text(&buffer) else {

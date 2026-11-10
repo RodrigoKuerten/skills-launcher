@@ -18,7 +18,7 @@ const HOSTS: &[&str] = &[
     "windsurf",
 ];
 
-const SOURCE_SELECT: &str = "SELECT s.id,s.slug,s.name,s.summary,s.author,s.category,s.license,s.repository_url,s.source_id,src.name,src.kind,src.trust,s.risk_level,s.security_score,s.quality_score,s.stars,s.archived,s.status,s.install_count,s.updated_at,v.id,v.version_label,v.content_hash,v.published_at,v.created_at,v.files,v.security_score,v.risk_level,v.status,v.commit_ref,v.findings FROM skills s JOIN sources src ON src.id=s.source_id LEFT JOIN skill_versions v ON v.id=s.latest_version_id";
+const SOURCE_SELECT: &str = "SELECT s.id,s.slug,s.name,s.summary,s.author,s.category,s.license,s.repository_url,s.source_id,src.name,src.kind,src.trust,s.risk_level,s.security_score,s.quality_score,s.stars,s.archived,s.status,s.install_count,s.updated_at,v.id,v.version_label,v.content_hash,v.published_at,v.created_at,json_array_length(v.files),v.security_score,v.risk_level,v.status,v.commit_ref,v.findings FROM skills s JOIN sources src ON src.id=s.source_id LEFT JOIN skill_versions v ON v.id=s.latest_version_id";
 
 pub async fn sync_source(
     db: &Db,
@@ -380,10 +380,10 @@ fn fail_sync(db: &Db, run_id: &str, source: &Source, error: &AppError) -> AppRes
 
 pub fn list_skills(db: &Db, query: &SkillQuery) -> AppResult<SkillPage> {
     db.with_conn(|conn| {
-        let page = query.page.unwrap_or(1).max(1);
+        let page = query.page.unwrap_or(1).clamp(1, 1_000_000);
         let page_size = query.page_size.unwrap_or(24).clamp(1, 100);
         let offset = (page - 1) * page_size;
-        let mut clauses = vec!["src.deleted_at IS NULL".to_string()];
+        let mut clauses = vec!["src.deleted_at IS NULL".to_string(), "s.status <> 'ARCHIVED'".to_string()];
         let mut values: Vec<SqlValue> = Vec::new();
         if !query.include_blocked.unwrap_or(false) && query.risk.is_none() {
             clauses.push("s.status='ACTIVE'".into());
@@ -452,12 +452,7 @@ pub fn list_skills(db: &Db, query: &SkillQuery) -> AppResult<SkillPage> {
 fn map_skill_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SkillSummary> {
     let latest = row.get::<_, Option<String>>(20)?;
     let latest_version = if latest.is_some() {
-        let files_count = row
-            .get::<_, String>(25)
-            .ok()
-            .and_then(|value| serde_json::from_str::<Vec<SkillFile>>(&value).ok())
-            .map(|files| files.len() as i64)
-            .unwrap_or(0);
+        let files_count = row.get::<_, Option<i64>>(25)?.unwrap_or(0);
         let findings = row
             .get::<_, String>(30)
             .ok()
@@ -544,16 +539,11 @@ pub fn get_skill(db: &Db, id: &str) -> AppResult<SkillDetail> {
             |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
         )?;
         let mut statement = conn.prepare(
-            "SELECT id,version_label,content_hash,published_at,created_at,files,security_score,risk_level,status,commit_ref,findings FROM skill_versions WHERE skill_id=?1 ORDER BY created_at DESC",
+            "SELECT id,version_label,content_hash,published_at,created_at,json_array_length(files),security_score,risk_level,status,commit_ref,findings FROM skill_versions WHERE skill_id=?1 ORDER BY created_at DESC",
         )?;
         let versions = statement
             .query_map(params![id], |row| {
-                let files_count = row
-                    .get::<_, String>(5)
-                    .ok()
-                    .and_then(|value| serde_json::from_str::<Vec<SkillFile>>(&value).ok())
-                    .map(|files| files.len() as i64)
-                    .unwrap_or(0);
+                let files_count = row.get::<_, Option<i64>>(5)?.unwrap_or(0);
                 let findings = row
                     .get::<_, String>(10)
                     .ok()
@@ -632,18 +622,30 @@ fn map_installation(row: &rusqlite::Row<'_>) -> rusqlite::Result<Installation> {
 
 pub fn list_updates(db: &Db) -> AppResult<Vec<UpdateItem>> {
     let installations = list_installations(db)?;
-    Ok(installations
-        .into_iter()
-        .filter(|installation| {
-            installation.status == "INSTALLED"
-                && installation.latest_version_id.is_some()
-                && installation.version_id.as_deref() != installation.latest_version_id.as_deref()
-        })
-        .map(|installation| UpdateItem {
+    let mut updates = Vec::new();
+    for installation in installations {
+        if installation.status != "INSTALLED"
+            || installation.latest_version_id.is_none()
+            || installation.version_id.as_deref() == installation.latest_version_id.as_deref()
+        {
+            continue;
+        }
+        let Ok(detail) = get_skill(db, &installation.skill_id) else {
+            continue;
+        };
+        let Some(latest) = detail.skill.latest_version else {
+            continue;
+        };
+        if latest.status != "PUBLISHED" || matches!(latest.risk_level.as_str(), "HIGH" | "CRITICAL")
+        {
+            continue;
+        }
+        updates.push(UpdateItem {
             change_summary: "A newer version is available".into(),
             installation,
-        })
-        .collect())
+        });
+    }
+    Ok(updates)
 }
 
 pub fn list_source_runs(db: &Db, source_id: Option<&str>, limit: i64) -> AppResult<Vec<SourceRun>> {
@@ -1063,9 +1065,12 @@ pub fn import_sources(db: &Db, json_text: &str) -> AppResult<Vec<Source>> {
             "Unsupported source export format".into(),
         ));
     }
-    let mut imported = Vec::new();
+    let mut inputs = Vec::new();
     for input in export.sources {
-        let input = normalize_source(input)?;
+        inputs.push(normalize_source(input)?);
+    }
+    let mut imported = Vec::new();
+    for input in inputs {
         let existing = db.with_conn(|conn| {
             Ok(conn
                 .query_row(

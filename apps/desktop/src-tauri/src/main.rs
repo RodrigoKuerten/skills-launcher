@@ -31,6 +31,7 @@ fn main() {
                 .app_data_dir()
                 .map_err(|error| error.to_string())?;
             let db = Db::open(&data_dir).map_err(|error| error.to_string())?;
+            agents::recover_stale_swaps();
             let state = AppState::new(db, &data_dir).map_err(|error| error.to_string())?;
             app.manage(state);
             let handle = app.handle().clone();
@@ -71,9 +72,8 @@ fn main() {
                                 let _ = handle.emit("catalog-updated", &summary);
                             }
                         }
-                        if let Ok(_guard) = state.install_lock.lock() {
-                            let _ = agents::auto_update(&state.db, &state.data_dir);
-                        }
+                        let _install_guard = state.install_lock.lock().await;
+                        let _ = agents::auto_update(&state.db, &state.data_dir).await;
                     }
                     tokio::time::sleep(Duration::from_secs(300)).await;
                 }

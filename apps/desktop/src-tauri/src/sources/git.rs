@@ -16,6 +16,7 @@ struct GitConfig {
 #[async_trait]
 impl super::SourceAdapter for GitRepoAdapter {
     async fn fetch(&self, source: &Source, ctx: &SourceContext<'_>) -> AppResult<SourceSyncResult> {
+        super::ensure_public_host(&source.url).await?;
         let config: GitConfig = serde_json::from_value(source.config.clone()).unwrap_or_default();
         let branch = config.branch.unwrap_or_default();
         if !branch.is_empty() {
@@ -41,9 +42,12 @@ async fn clone_and_scan(
     let mut command = tokio::process::Command::new(git);
     command
         .arg("clone")
+        .arg("-c")
+        .arg("http.followRedirects=false")
         .arg("--depth")
         .arg("1")
         .arg("--single-branch")
+        .kill_on_drop(true)
         .env("GIT_TERMINAL_PROMPT", "0");
     if !branch.is_empty() {
         command.arg("--branch").arg(branch);

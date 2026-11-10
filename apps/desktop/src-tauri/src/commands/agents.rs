@@ -29,10 +29,7 @@ pub async fn install_skill(
     request: InstallRequest,
 ) -> AppResult<InstallResponse> {
     let detected = agents::detect_all(&state.db).await?;
-    let _guard = state
-        .install_lock
-        .lock()
-        .map_err(|_| AppError::Other("Install lock poisoned".into()))?;
+    let _guard = state.install_lock.lock().await;
     let result = agents::install_skill(&state.db, &state.data_dir, &request, &detected)?;
     let _ = app.emit("library-updated", &result);
     Ok(result)
@@ -45,38 +42,29 @@ pub async fn update_installation(
     id: String,
 ) -> AppResult<InstallResponse> {
     let detected = agents::detect_all(&state.db).await?;
-    let _guard = state
-        .install_lock
-        .lock()
-        .map_err(|_| AppError::Other("Install lock poisoned".into()))?;
+    let _guard = state.install_lock.lock().await;
     let result = agents::update_installation(&state.db, &state.data_dir, &id, &detected)?;
     let _ = app.emit("library-updated", &result);
     Ok(result)
 }
 
 #[tauri::command]
-pub fn uninstall_skill(
+pub async fn uninstall_skill(
     state: State<'_, AppState>,
     id: String,
     remove_files: bool,
 ) -> AppResult<()> {
-    let _guard = state
-        .install_lock
-        .lock()
-        .map_err(|_| AppError::Other("Install lock poisoned".into()))?;
+    let _guard = state.install_lock.lock().await;
     agents::uninstall_skill(&state.db, &state.data_dir, &id, remove_files)
 }
 
 #[tauri::command]
-pub fn rollback_installation(
+pub async fn rollback_installation(
     state: State<'_, AppState>,
     id: String,
     backup_id: Option<String>,
 ) -> AppResult<InstallResponse> {
-    let _guard = state
-        .install_lock
-        .lock()
-        .map_err(|_| AppError::Other("Install lock poisoned".into()))?;
+    let _guard = state.install_lock.lock().await;
     agents::rollback_installation(&state.db, &state.data_dir, &id, backup_id.as_deref())
 }
 
@@ -109,15 +97,13 @@ pub fn list_operations(
 }
 
 #[tauri::command]
-pub fn apply_auto_updates(
+pub async fn apply_auto_updates(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> AppResult<Vec<crate::domain::InstallOutcome>> {
-    let _guard = state
-        .install_lock
-        .lock()
-        .map_err(|_| AppError::Other("Install lock poisoned".into()))?;
+    let _guard = state.install_lock.lock().await;
     let outcomes = agents::auto_update(&state.db, &state.data_dir)
+        .await
         .map_err(|error| AppError::Other(error.to_string()))?;
     let _ = app.emit("library-updated", &outcomes);
     Ok(outcomes)

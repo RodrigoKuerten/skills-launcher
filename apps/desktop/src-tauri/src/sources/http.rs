@@ -16,6 +16,7 @@ pub struct HttpJsonAdapter;
 #[async_trait]
 impl super::SourceAdapter for HttpJsonAdapter {
     async fn fetch(&self, source: &Source, ctx: &SourceContext<'_>) -> AppResult<SourceSyncResult> {
+        super::ensure_public_host(&source.url).await?;
         let response = ctx
             .http
             .get(&source.url)
@@ -130,6 +131,11 @@ impl super::SourceAdapter for HttpJsonAdapter {
                 .get("version")
                 .and_then(Value::as_str)
                 .map(str::to_string);
+            let homepage_url = item
+                .get("homepage_url")
+                .and_then(Value::as_str)
+                .filter(|value| value.starts_with("https://"))
+                .map(str::to_string);
             let category = item
                 .get("category")
                 .and_then(Value::as_str)
@@ -156,6 +162,9 @@ impl super::SourceAdapter for HttpJsonAdapter {
                 }
                 if skill.description.is_empty() {
                     skill.description = description;
+                }
+                if homepage_url.is_some() {
+                    skill.homepage_url = homepage_url;
                 }
                 skills.push(skill);
             }
