@@ -296,6 +296,7 @@ fn has_copilot_extension(home: &Path) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
 

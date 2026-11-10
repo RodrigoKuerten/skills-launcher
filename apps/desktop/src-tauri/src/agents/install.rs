@@ -629,6 +629,7 @@ fn mark_failed(db: &Db, installation_id: &str) {
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn create_backup(
     db: &Db,
     data_dir: &Path,

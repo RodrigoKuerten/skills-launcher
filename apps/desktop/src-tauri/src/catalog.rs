@@ -685,6 +685,7 @@ fn map_source_run(row: &rusqlite::Row<'_>) -> rusqlite::Result<SourceRun> {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
     use serde_json::json;

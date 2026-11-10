@@ -75,7 +75,6 @@ fn main() {
                             let _ = agents::auto_update(&state.db, &state.data_dir);
                         }
                     }
-                    drop(state);
                     tokio::time::sleep(Duration::from_secs(300)).await;
                 }
             });

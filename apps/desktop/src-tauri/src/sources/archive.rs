@@ -73,6 +73,7 @@ fn read_zip_file(source: &Source) -> AppResult<SourceSyncResult> {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
     use std::io::Write;
