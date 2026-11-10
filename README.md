@@ -1,5 +1,7 @@
 # Skills Launcher
 
+[![cross-platform](https://github.com/RodrigoKuerten/skills-launcher/actions/workflows/cross-platform.yml/badge.svg?branch=main)](https://github.com/RodrigoKuerten/skills-launcher/actions/workflows/cross-platform.yml)
+
 One library for every AI agent. Skills Launcher is a desktop-first universal skills manager: discover skills from
 verifiable sources, inspect provenance and security findings, install them into the agents you actually have, and keep
 them current with backups and rollback.
@@ -87,6 +89,7 @@ do not use the loopback companion.
 - `docs/AGENTS.md` — host matrix, detection evidence, install/backup/rollback
 - `docs/SECURITY.md` — security boundaries and residual risks
 - `docs/AUDIT.md` — Playwright design audit and screenshots
+- `docs/CI.md` — Linux/macOS/Windows build and launch evidence
 - `docs/research/competitors.md` — source-linked competitor/license research
 - `docs/ARCHITECTURE.md` — earlier web/companion architecture
 
