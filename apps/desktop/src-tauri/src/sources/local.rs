@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use walkdir::WalkDir;
 
 const MAX_FILE_BYTES: u64 = 512 * 1024;
-const MAX_SKILL_BYTES: usize = 16 * 1024 * 1024;
-const MAX_FILES: usize = 300;
+const MAX_SKILL_BYTES: usize = 32 * 1024 * 1024;
+const MAX_FILES: usize = 1_000;
 const MAX_SKILLS: usize = 200;
 
 pub struct LocalDirAdapter;
@@ -137,7 +137,7 @@ fn skills_from_files(
             total += content.len();
             if total > MAX_SKILL_BYTES {
                 return Err(AppError::Validation(format!(
-                    "Skill '{skill_root}' exceeds the 16 MB content limit"
+                    "Skill '{skill_root}' exceeds the 32 MB content limit"
                 )));
             }
             selected.push(file(relative.to_string(), content.clone()));

@@ -7,7 +7,7 @@ use futures::StreamExt;
 use serde::Deserialize;
 use url::Url;
 
-const MAX_ZIP_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_ZIP_BYTES: u64 = 128 * 1024 * 1024;
 const GITHUB_API: &str = "https://api.github.com";
 
 pub struct GithubRepoAdapter;

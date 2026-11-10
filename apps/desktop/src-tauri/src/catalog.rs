@@ -800,6 +800,35 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "hits the real seeded GitHub sources"]
+    async fn seeded_sources_sync_smoke() {
+        let data =
+            std::env::temp_dir().join(format!("skills-launcher-all-{}", uuid::Uuid::new_v4()));
+        let db = Db::open(&data).unwrap();
+        let client = reqwest::Client::builder()
+            .user_agent("SkillsLauncher/0.2 (+https://skillslauncher.app)")
+            .build()
+            .unwrap();
+        let summaries = sync_all(&db, &client, None, &data.join("tmp"))
+            .await
+            .unwrap();
+        for summary in &summaries {
+            println!(
+                "{} status={} found={} created={} updated={} blocked={} error={:?}",
+                summary.source_id,
+                summary.status,
+                summary.found,
+                summary.created,
+                summary.updated,
+                summary.blocked,
+                summary.error
+            );
+        }
+        assert!(summaries.iter().map(|summary| summary.found).sum::<i64>() > 0);
+        let _ = std::fs::remove_dir_all(data);
+    }
+
+    #[tokio::test]
     async fn prompt_injection_is_quarantined() {
         let root = fixture();
         std::fs::write(

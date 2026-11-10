@@ -7,11 +7,11 @@ use std::collections::BTreeMap;
 use std::io::{Cursor, Read};
 use zip::ZipArchive;
 
-const MAX_ARCHIVE_BYTES: u64 = 64 * 1024 * 1024;
-const MAX_ARCHIVE_ENTRIES: usize = 2_000;
-const MAX_FILES_PER_SKILL: usize = 300;
+const MAX_ARCHIVE_BYTES: u64 = 128 * 1024 * 1024;
+const MAX_ARCHIVE_ENTRIES: usize = 15_000;
+const MAX_FILES_PER_SKILL: usize = 1_000;
 const MAX_FILE_BYTES: usize = 512 * 1024;
-const MAX_SKILL_BYTES: usize = 16 * 1024 * 1024;
+const MAX_SKILL_BYTES: usize = 32 * 1024 * 1024;
 const MAX_SKILLS: usize = 200;
 
 pub struct ZipMeta {
@@ -155,9 +155,8 @@ pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredS
         }
         if let Some(mode) = entry.unix_mode() {
             if mode & 0o170000 == 0o120000 {
-                return Err(AppError::Validation(
-                    "ZIP symlinks are not supported".into(),
-                ));
+                // Archives are never extracted to disk; symlinks are simply not imported.
+                continue;
             }
         }
         if entry.is_dir() {
@@ -293,7 +292,7 @@ pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredS
             skill_bytes += content.len();
             if skill_bytes > MAX_SKILL_BYTES {
                 return Err(AppError::Validation(
-                    "Skill exceeds the 16 MB content limit".into(),
+                    "Skill exceeds the 32 MB content limit".into(),
                 ));
             }
             files.push(file(safe, content));

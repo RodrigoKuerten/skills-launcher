@@ -9,7 +9,7 @@ Sources are untrusted catalogs. Adapters fetch bytes only; validation, scanning,
 | `github_repo` | `url=https://github.com/owner/repo`, config `{repo, branch?, path?}` | Downloads the public codeload ZIP. API metadata is optional; sync works when the unauthenticated API is rate limited. Branch defaults from GitHub metadata, then `main`/`master`. |
 | `github_org` | `url=https://github.com/org`, config `{limit?, branch?, path?}` | Lists public repos through the GitHub API (token recommended), scans up to 25. |
 | `local_dir` | `url` = picked absolute directory | Read-only, no symlinks, ignores `.git`, `node_modules`, `target`, `dist`, `.next`, `vendor`. |
-| `zip` | `url` = picked absolute `.zip` | Parsed in memory; no extraction to host directories. Rejects traversal, symlinks, encryption and archive bombs. |
+| `zip` | `url` = picked absolute `.zip` | Parsed in memory; no extraction to host directories. Rejects traversal, encryption and archive bombs; symlink entries are skipped. |
 | `git_repo` | `url=https://...`, config `{branch?, path?}` | Uses system `git clone --depth 1` into an isolated temp directory; no shell, no hooks. |
 | `http_json` | `url=https://...` | Versioned catalog contract below; no HTML scraping. |
 
@@ -17,7 +17,7 @@ Sources are untrusted catalogs. Adapters fetch bytes only; validation, scanning,
 
 - Public repositories use `https://codeload.github.com/...` directly. This keeps sync usable when the GitHub API allows only 60 requests/hour.
 - Optional token is held in memory for the current app session only; it is never written to SQLite.
-- Archive cap: 64 MB compressed/uncompressed budget, 2,000 entries, 300 text files per skill, 512 KB per file, 16 MB per skill.
+- Archive cap: 128 MB compressed/uncompressed budget, 15,000 entries, 1,000 text files per skill, 512 KB per file, 32 MB per skill. Symlink entries are skipped (archives are never extracted).
 - GitHub organization sync requires API access and may fail on rate limits; the error is explicit.
 
 ## HTTP JSON contract
@@ -56,7 +56,7 @@ The scanner checks prompt-injection language, exfiltration/destructive commands,
 
 ## Security limits
 
-- No symlinks, reparse points, encrypted ZIPs, path traversal, absolute paths, case collisions or reserved Windows names.
+- No symlinks/reparse points in local sources or host installs; symlink ZIP entries are skipped. Encrypted ZIPs, path traversal, absolute paths, case collisions and reserved Windows names are rejected.
 - No adapter fetch of URLs discovered inside skill content.
 - No execution of imported code, scripts, hooks or install commands.
 - Local and ZIP sources require a native picker grant; raw webview paths are rejected.
