@@ -81,12 +81,6 @@ async fn clone_and_scan(
         } else {
             Some(branch.to_string())
         };
-        skill.version_label = skill.version_label.clone().or_else(|| {
-            skill
-                .commit_ref
-                .as_ref()
-                .map(|value| value.chars().take(8).collect())
-        });
     }
     Ok(SourceSyncResult {
         skills,

@@ -329,10 +329,7 @@ pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredS
                 license: meta.license.clone(),
                 stars: meta.stars,
                 commit_ref: meta.commit_ref.clone(),
-                version_label: meta
-                    .commit_ref
-                    .as_ref()
-                    .map(|sha| sha.chars().take(8).collect()),
+                version_label: None,
             },
         ) {
             skills.push(skill);

@@ -274,6 +274,10 @@ impl Db {
             "UPDATE installations SET status='FAILED' WHERE status='INSTALLING'",
             [],
         )?;
+        conn.execute(
+            "UPDATE skill_versions SET version_label=substr(content_hash,1,8) WHERE version_label IN ('main','master','')",
+            [],
+        )?;
         let db = Self {
             conn: Mutex::new(conn),
         };
