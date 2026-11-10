@@ -123,8 +123,10 @@ CREATE TABLE IF NOT EXISTS backups (
   skill_id TEXT,
   host TEXT,
   path TEXT NOT NULL,
+  version_id TEXT,
   version_label TEXT,
   content_hash TEXT,
+  reason TEXT NOT NULL DEFAULT 'manual',
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS operations (
@@ -151,18 +153,90 @@ CREATE INDEX IF NOT EXISTS idx_operations_created ON operations(created_at);
 "#;
 
 const CATEGORIES: &[(&str, &str, &str, &str, i64)] = &[
-    ("frontend", "Frontend", "UI engineering, components, state and performance.", "Code2", 1),
-    ("backend", "Backend", "APIs, services, queues and server-side patterns.", "Server", 2),
-    ("design", "Design & UX", "Visual systems, interaction and accessibility.", "Palette", 3),
-    ("architecture", "Architecture", "System design, boundaries and technical decisions.", "Layers", 4),
-    ("security", "Security", "Threat modeling, hardening and secure review.", "Shield", 5),
-    ("devops", "DevOps", "CI/CD, containers, infrastructure and deployment.", "Container", 6),
-    ("automation", "Automation", "Workflows, agents, loops and tool integration.", "Zap", 7),
-    ("ai", "AI & Agents", "Prompting, evaluation, RAG and agent architecture.", "Bot", 8),
-    ("database", "Database", "Schema design, queries, indexes and migrations.", "Database", 9),
-    ("testing", "Testing & QA", "TDD, E2E, coverage and regression prevention.", "TestTube2", 10),
-    ("research", "Research", "Deep research, source evaluation and synthesis.", "Search", 11),
-    ("productivity", "Productivity", "Planning, documentation and workflow discipline.", "ListChecks", 12),
+    (
+        "frontend",
+        "Frontend",
+        "UI engineering, components, state and performance.",
+        "Code2",
+        1,
+    ),
+    (
+        "backend",
+        "Backend",
+        "APIs, services, queues and server-side patterns.",
+        "Server",
+        2,
+    ),
+    (
+        "design",
+        "Design & UX",
+        "Visual systems, interaction and accessibility.",
+        "Palette",
+        3,
+    ),
+    (
+        "architecture",
+        "Architecture",
+        "System design, boundaries and technical decisions.",
+        "Layers",
+        4,
+    ),
+    (
+        "security",
+        "Security",
+        "Threat modeling, hardening and secure review.",
+        "Shield",
+        5,
+    ),
+    (
+        "devops",
+        "DevOps",
+        "CI/CD, containers, infrastructure and deployment.",
+        "Container",
+        6,
+    ),
+    (
+        "automation",
+        "Automation",
+        "Workflows, agents, loops and tool integration.",
+        "Zap",
+        7,
+    ),
+    (
+        "ai",
+        "AI & Agents",
+        "Prompting, evaluation, RAG and agent architecture.",
+        "Bot",
+        8,
+    ),
+    (
+        "database",
+        "Database",
+        "Schema design, queries, indexes and migrations.",
+        "Database",
+        9,
+    ),
+    (
+        "testing",
+        "Testing & QA",
+        "TDD, E2E, coverage and regression prevention.",
+        "TestTube2",
+        10,
+    ),
+    (
+        "research",
+        "Research",
+        "Deep research, source evaluation and synthesis.",
+        "Search",
+        11,
+    ),
+    (
+        "productivity",
+        "Productivity",
+        "Planning, documentation and workflow discipline.",
+        "ListChecks",
+        12,
+    ),
 ];
 
 fn column_exists(conn: &Connection, table: &str, column: &str) -> AppResult<bool> {
@@ -187,6 +261,40 @@ impl Db {
         if !column_exists(&conn, "sources", "deleted_at")? {
             conn.execute("ALTER TABLE sources ADD COLUMN deleted_at TEXT", [])?;
         }
+        if !column_exists(&conn, "backups", "version_id")? {
+            conn.execute("ALTER TABLE backups ADD COLUMN version_id TEXT", [])?;
+        }
+        if !column_exists(&conn, "backups", "reason")? {
+            conn.execute(
+                "ALTER TABLE backups ADD COLUMN reason TEXT NOT NULL DEFAULT 'manual'",
+                [],
+            )?;
+        }
+        conn.execute(
+            "UPDATE installations SET status='FAILED' WHERE status='INSTALLING'",
+            [],
+        )?;
+        let recovered_at = now_iso();
+        conn.execute(
+            "UPDATE source_runs SET status='error',error=COALESCE(error,'Interrupted by app restart'),finished_at=?1 WHERE status='running'",
+            params![recovered_at],
+        )?;
+        conn.execute(
+            "UPDATE sources SET last_status='error',last_error=COALESCE(last_error,'Interrupted by app restart') WHERE last_status='running'",
+            [],
+        )?;
+        conn.execute(
+            "UPDATE skill_versions SET version_label=substr(content_hash,1,8) WHERE version_label IN ('main','master','')",
+            [],
+        )?;
+        conn.execute(
+            "UPDATE installations SET install_path=substr(install_path,5) WHERE install_path LIKE ?1",
+            params![r"\\?\%"],
+        )?;
+        conn.execute(
+            "UPDATE sources SET url=substr(url,5) WHERE kind IN ('local_dir','zip') AND url LIKE ?1",
+            params![r"\\?\%"],
+        )?;
         let db = Self {
             conn: Mutex::new(conn),
         };
@@ -225,7 +333,6 @@ impl Db {
                 ("theme", "dark"),
                 ("auto_sync", "false"),
                 ("auto_sync_interval_minutes", "360"),
-                ("remote_catalog_url", ""),
             ];
             for (key, value) in defaults {
                 conn.execute(
@@ -268,7 +375,11 @@ impl Db {
     pub fn get_setting(&self, key: &str) -> AppResult<Option<String>> {
         self.with_conn(|conn| {
             Ok(conn
-                .query_row("SELECT value FROM settings WHERE key=?1", params![key], |row| row.get(0))
+                .query_row(
+                    "SELECT value FROM settings WHERE key=?1",
+                    params![key],
+                    |row| row.get(0),
+                )
                 .optional()?)
         })
     }
@@ -290,13 +401,11 @@ impl Db {
             .get_setting("auto_sync_interval_minutes")?
             .and_then(|value| value.parse().ok())
             .unwrap_or(360);
-        let remote_catalog_url = self.get_setting("remote_catalog_url")?.unwrap_or_default();
         Ok(Settings {
             theme,
             auto_sync,
             auto_sync_interval_minutes: interval,
             github_token_set: false,
-            remote_catalog_url,
         })
     }
 
@@ -312,18 +421,11 @@ impl Db {
         }
         if let Some(interval) = input.auto_sync_interval_minutes {
             if !(30..=10080).contains(&interval) {
-                return Err(AppError::Validation("Sync interval must be between 30 and 10080 minutes".into()));
+                return Err(AppError::Validation(
+                    "Sync interval must be between 30 and 10080 minutes".into(),
+                ));
             }
             self.set_setting("auto_sync_interval_minutes", &interval.to_string())?;
-        }
-        if let Some(url) = &input.remote_catalog_url {
-            if !url.trim().is_empty() {
-                let parsed = url::Url::parse(url)?;
-                if parsed.scheme() != "https" {
-                    return Err(AppError::Validation("Remote catalog must use https".into()));
-                }
-            }
-            self.set_setting("remote_catalog_url", url.trim())?;
         }
         self.settings()
     }
@@ -386,7 +488,7 @@ impl Db {
     pub fn list_categories(&self) -> AppResult<Vec<Category>> {
         self.with_conn(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT c.slug,c.name,c.description,c.icon,c.sort_order,(SELECT COUNT(*) FROM skills s WHERE s.category=c.slug AND s.status='ACTIVE') FROM categories c ORDER BY c.sort_order",
+                "SELECT c.slug,c.name,c.description,c.icon,c.sort_order,(SELECT COUNT(*) FROM skills s JOIN sources src ON src.id=s.source_id WHERE s.category=c.slug AND s.status='ACTIVE' AND src.deleted_at IS NULL) FROM categories c ORDER BY c.sort_order",
             )?;
             let rows = stmt.query_map([], |row| {
                 Ok(Category {
@@ -410,9 +512,13 @@ impl Db {
         self.with_conn(|conn| {
             let sources = conn.query_row("SELECT COUNT(*) FROM sources WHERE deleted_at IS NULL", [], |row| row.get(0))?;
             let enabled_sources = conn.query_row("SELECT COUNT(*) FROM sources WHERE enabled=1 AND deleted_at IS NULL", [], |row| row.get(0))?;
-            let skills = conn.query_row("SELECT COUNT(*) FROM skills", [], |row| row.get(0))?;
+            let skills = conn.query_row(
+                "SELECT COUNT(*) FROM skills s JOIN sources src ON src.id=s.source_id WHERE src.deleted_at IS NULL",
+                [],
+                |row| row.get(0),
+            )?;
             let blocked_skills = conn.query_row(
-                "SELECT COUNT(*) FROM skills WHERE status='QUARANTINED' OR risk_level IN ('HIGH','CRITICAL')",
+                "SELECT COUNT(*) FROM skills s JOIN sources src ON src.id=s.source_id WHERE src.deleted_at IS NULL AND (s.status='QUARANTINED' OR s.risk_level IN ('HIGH','CRITICAL'))",
                 [],
                 |row| row.get(0),
             )?;
@@ -484,5 +590,4 @@ impl Db {
             Ok(())
         })
     }
-
 }

@@ -2,9 +2,11 @@ use crate::domain::{Bootstrap, Category, Settings, Source, Stats};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 
+pub use agents::*;
 pub use core::*;
 pub use sources::*;
 
+mod agents;
 mod core;
 mod sources;
 

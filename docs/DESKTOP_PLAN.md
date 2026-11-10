@@ -70,19 +70,26 @@ rusqlite) · Tauri IPC · optional remote REST catalog. Java/Spring Boot + Postg
 
 ```
 apps/desktop/
-  src/                    React UI only (IPC client, components, pages)
+  src/                    React UI only (typed IPC client, components, pages)
   src-tauri/src/
-    lib.rs/main.rs        Tauri commands + app setup (thin)
-    db/                   SQLite schema, migrations, repositories
-    domain/               types, errors, hashes, parser, scan, versioning
-    sources/              SourceAdapter trait, registry, adapters, sync engine
-    agents/               AgentAdapter trait, detection, installer, backups
-    operations/           journal + rollback orchestration
-    settings/             app settings
+    main.rs               Tauri builder, command registration, auto-sync loop
+    commands/             thin Tauri command modules (core, sources, agents)
+    db.rs                 SQLite schema, migrations, settings, stats, journal
+    domain.rs             serializable IPC/domain types
+    catalog.rs            source sync persistence, catalog queries, source CRUD
+    security.rs           static findings and risk scoring
+    sources/              SourceAdapter trait, registry, adapters, parsing
+    agents/               host descriptors, detection, installer, backups
+    state.rs              shared DB, HTTP, token, path grants, install lock
 ```
 
-Dependency direction: `ui -> IPC -> commands -> domain/sources/agents/db`. Domain never imports Tauri or React.
-Adapters never touch the DB directly; the sync/install services own persistence.
+Dependency direction: `ui -> IPC -> commands -> catalog/sources/agents/security/db`. The domain never imports Tauri or
+React. Adapters return untrusted bytes; `catalog` owns validation, scanning, hashing and persistence. Only `agents`
+writes host directories.
+
+This is a modular monolith instead of the proposed multi-crate workspace. The crate split was rejected for the MVP:
+one binary, one build, one test target, explicit module boundaries. Split only when a second binary or independent
+release cadence appears.
 
 ## Parallel work ownership
 
@@ -97,12 +104,20 @@ Adapters never touch the DB directly; the sync/install services own persistence.
 
 ## Acceptance checks
 
-- `cargo test` for parser/hash/scan/source selection/agent adapter/install rollback.
-- `npm test`/`cargo test` and `npm run build:desktop` pass.
-- Real source sync from at least one GitHub repo and one local directory; no invented rows.
-- Detection reports honest evidence on Windows; OpenCode detected if present.
-- Install into a temporary host root in tests; update preserves extra file; rollback restores.
+Current Windows evidence (2026-11-09):
+
+- All five seeded official GitHub sources sync through the app: 105 real skills, 2 quarantined, 0 invented rows.
+- Local source sync, security quarantine, install/update with user extras, backups, rollback, ZIP traversal and path
+  validation pass in `cargo test`.
+- Real detection on this machine reports only OpenCode (runtime evidence); config/skills folders alone stay
+  not-detected.
+- `npm run build:exe` produces a working release executable; the NSIS bundle is the remaining packaging check.
+- UI typecheck/build and Playwright screenshot audit are in progress on `feat/desktop-ui`.
+
+Remaining acceptance checks:
+
+- `cargo test` and `npm run build:desktop` pass from a clean checkout.
+- Source import/export round-trips through the UI.
+- UI build and visual audit at 1320x860 (desktop) and narrow width; no console errors; real IPC states.
+- Windows installer built, installed, launched and uninstalled; Linux/macOS documented as unverified without runners.
 - No remote URL, source content or skill file is rendered as raw HTML.
-- Source import/export round-trips.
-- UI build and visual audit via Playwright at 1440x900 and 390x844.
-- Windows installer built; Linux/macOS builds documented as unverified without runners.

@@ -7,11 +7,11 @@ use std::collections::BTreeMap;
 use std::io::{Cursor, Read};
 use zip::ZipArchive;
 
-const MAX_ARCHIVE_BYTES: u64 = 64 * 1024 * 1024;
-const MAX_ARCHIVE_ENTRIES: usize = 2_000;
-const MAX_FILES_PER_SKILL: usize = 300;
+const MAX_ARCHIVE_BYTES: u64 = 128 * 1024 * 1024;
+const MAX_ARCHIVE_ENTRIES: usize = 15_000;
+const MAX_FILES_PER_SKILL: usize = 1_000;
 const MAX_FILE_BYTES: usize = 512 * 1024;
-const MAX_SKILL_BYTES: usize = 16 * 1024 * 1024;
+const MAX_SKILL_BYTES: usize = 32 * 1024 * 1024;
 const MAX_SKILLS: usize = 200;
 
 pub struct ZipMeta {
@@ -28,7 +28,11 @@ pub struct ZipAdapter;
 
 #[async_trait]
 impl super::SourceAdapter for ZipAdapter {
-    async fn fetch(&self, source: &Source, _ctx: &SourceContext<'_>) -> AppResult<SourceSyncResult> {
+    async fn fetch(
+        &self,
+        source: &Source,
+        _ctx: &SourceContext<'_>,
+    ) -> AppResult<SourceSyncResult> {
         let source = source.clone();
         let result = tokio::task::spawn_blocking(move || read_zip_file(&source))
             .await
@@ -41,7 +45,9 @@ fn read_zip_file(source: &Source) -> AppResult<SourceSyncResult> {
     let path = std::path::Path::new(&source.url);
     let metadata = std::fs::metadata(path)?;
     if metadata.len() > MAX_ARCHIVE_BYTES {
-        return Err(AppError::Validation("ZIP archive is too large (max 64 MB)".into()));
+        return Err(AppError::Validation(
+            "ZIP archive is too large (max 64 MB)".into(),
+        ));
     }
     let bytes = std::fs::read(path)?;
     let skills = skills_from_zip(
@@ -66,9 +72,68 @@ fn read_zip_file(source: &Source) -> AppResult<SourceSyncResult> {
     })
 }
 
+#[cfg(test)]
+#[allow(clippy::items_after_test_module)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+
+    fn zip_with(path: &str) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        {
+            let mut writer = zip::ZipWriter::new(Cursor::new(&mut bytes));
+            writer
+                .start_file(path, SimpleFileOptions::default())
+                .unwrap();
+            writer.write_all(b"# bad").unwrap();
+            writer.finish().unwrap();
+        }
+        bytes
+    }
+
+    #[test]
+    fn rejects_zip_traversal() {
+        let error = skills_from_zip(
+            &zip_with("../outside/SKILL.md"),
+            ZipMeta {
+                author: "test".into(),
+                source_url: "https://example.com".into(),
+                license: None,
+                stars: 0,
+                branch: None,
+                commit_ref: None,
+                subpath: None,
+            },
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("Unsafe path"));
+    }
+
+    #[test]
+    fn rejects_absolute_zip_path() {
+        let error = skills_from_zip(
+            &zip_with("C:/outside/SKILL.md"),
+            ZipMeta {
+                author: "test".into(),
+                source_url: "https://example.com".into(),
+                license: None,
+                stars: 0,
+                branch: None,
+                commit_ref: None,
+                subpath: None,
+            },
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("Unsafe path"));
+    }
+}
+
 pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredSkill>> {
     if bytes.len() as u64 > MAX_ARCHIVE_BYTES {
-        return Err(AppError::Validation("ZIP archive is too large (max 64 MB)".into()));
+        return Err(AppError::Validation(
+            "ZIP archive is too large (max 64 MB)".into(),
+        ));
     }
     let mut archive = ZipArchive::new(Cursor::new(bytes))
         .map_err(|error| AppError::Validation(format!("Invalid ZIP archive: {error}")))?;
@@ -85,11 +150,14 @@ pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredS
             .by_index(index)
             .map_err(|error| AppError::Validation(format!("Invalid ZIP entry: {error}")))?;
         if entry.encrypted() {
-            return Err(AppError::Validation("Encrypted ZIP entries are not supported".into()));
+            return Err(AppError::Validation(
+                "Encrypted ZIP entries are not supported".into(),
+            ));
         }
         if let Some(mode) = entry.unix_mode() {
             if mode & 0o170000 == 0o120000 {
-                return Err(AppError::Validation("ZIP symlinks are not supported".into()));
+                // Archives are never extracted to disk; symlinks are simply not imported.
+                continue;
             }
         }
         if entry.is_dir() {
@@ -103,7 +171,9 @@ pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredS
         }
         total_uncompressed = total_uncompressed.saturating_add(entry.size());
         if total_uncompressed > MAX_ARCHIVE_BYTES {
-            return Err(AppError::Validation("ZIP expands beyond the 64 MB limit".into()));
+            return Err(AppError::Validation(
+                "ZIP expands beyond the 64 MB limit".into(),
+            ));
         }
         if entry.size() > 0 && entry.compressed_size() > 0 {
             let ratio = entry.size() / entry.compressed_size().max(1);
@@ -134,8 +204,15 @@ pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredS
 
     let mut skill_roots: Vec<String> = stripped
         .values()
-        .filter(|path| path.eq_ignore_ascii_case("SKILL.md") || path.to_ascii_lowercase().ends_with("/skill.md"))
-        .map(|path| path.rsplit_once('/').map(|(root, _)| root.to_string()).unwrap_or_default())
+        .filter(|path| {
+            path.eq_ignore_ascii_case("SKILL.md")
+                || path.to_ascii_lowercase().ends_with("/skill.md")
+        })
+        .map(|path| {
+            path.rsplit_once('/')
+                .map(|(root, _)| root.to_string())
+                .unwrap_or_default()
+        })
         .filter(|root| {
             let Some(subpath) = &meta.subpath else {
                 return true;
@@ -202,16 +279,22 @@ pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredS
             entry
                 .take(MAX_FILE_BYTES as u64 + 1)
                 .read_to_end(&mut buffer)
-                .map_err(|error| AppError::Validation(format!("Could not read ZIP entry: {error}")))?;
+                .map_err(|error| {
+                    AppError::Validation(format!("Could not read ZIP entry: {error}"))
+                })?;
             if buffer.len() > MAX_FILE_BYTES {
-                return Err(AppError::Validation("ZIP entry exceeds the file size limit".into()));
+                return Err(AppError::Validation(
+                    "ZIP entry exceeds the file size limit".into(),
+                ));
             }
             let Some(content) = decode_text(&buffer) else {
                 continue;
             };
             skill_bytes += content.len();
             if skill_bytes > MAX_SKILL_BYTES {
-                return Err(AppError::Validation("Skill exceeds the 16 MB content limit".into()));
+                return Err(AppError::Validation(
+                    "Skill exceeds the 32 MB content limit".into(),
+                ));
             }
             files.push(file(safe, content));
             if files.len() > MAX_FILES_PER_SKILL {
@@ -235,7 +318,11 @@ pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredS
             &root_name,
             files,
             SkillMeta {
-                path: if root.is_empty() { ".".into() } else { root.clone() },
+                path: if root.is_empty() {
+                    ".".into()
+                } else {
+                    root.clone()
+                },
                 name_hint: root_name.clone(),
                 author: meta.author.clone(),
                 repository_url,
@@ -243,7 +330,7 @@ pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredS
                 license: meta.license.clone(),
                 stars: meta.stars,
                 commit_ref: meta.commit_ref.clone(),
-                version_label: meta.commit_ref.as_ref().map(|sha| sha.chars().take(8).collect()),
+                version_label: None,
             },
         ) {
             skills.push(skill);
@@ -268,11 +355,12 @@ fn common_root(entries: &[ZipEntryInfo]) -> Option<String> {
         }
     });
     let first = components.next()?;
-    if entries.iter().all(|entry| entry.name.starts_with(&format!("{first}/"))) {
+    if entries
+        .iter()
+        .all(|entry| entry.name.starts_with(&format!("{first}/")))
+    {
         Some(first)
     } else {
         None
     }
 }
-
-

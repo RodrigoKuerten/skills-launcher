@@ -39,6 +39,9 @@ A quarantined skill is excluded unless `includeBlocked` is true or a risk filter
 - `pick_source_path({ kind: "dir" | "zip" }) -> string | null` — opens the native picker and grants the path for local/ZIP source add/edit.
 
 `SourceInput`: `{ name, kind, url, author?, description?, config?, trust?, enabled?, autoSync?, intervalMinutes? }`.
+`Settings`: `{ theme, autoSync, autoSyncIntervalMinutes, githubTokenSet }`. `autoSyncIntervalMinutes` is the default
+used by the source form; each source stores its own interval. The GitHub token is memory-only for the current session;
+`githubTokenSet` reflects that, not a persisted secret.
 `kind`: `github_repo | github_org | local_dir | zip | git_repo | http_json`.
 
 Local and ZIP sources must be picked with `pick_source_path`; raw paths from the webview are rejected. Source deletes are soft so installed libraries keep provenance.
@@ -53,12 +56,14 @@ Local and ZIP sources must be picked with `pick_source_path`; raw paths from the
 - `rollback_installation({ id, backupId? }) -> InstallResponse`
 - `list_backups({ installationId? }) -> Backup[]`
 - `list_operations({ limit? }) -> Operation[]`
+- `apply_auto_updates() -> InstallOutcome[]` — updates installed skills for hosts with auto-update enabled.
 
 Detection is evidence-based: executable/version probe or a real app artifact, never directory existence alone. Undetected hosts are export-only.
 
 ## Events
 
 - `catalog-updated` — emitted after a source sync; payload is a `SyncSummary` or array. Listen with `@tauri-apps/api/event` and refresh bootstrap/lists.
+- `library-updated` — emitted after install/update/rollback or auto-update; refresh installations and updates.
 
 ## Error shape
 

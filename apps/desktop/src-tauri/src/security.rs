@@ -16,12 +16,9 @@ pub fn scan(files: &[SkillFile], readme: &str) -> ScanResult {
     let mut seen = BTreeSet::new();
 
     for file in files {
-        scan_text(
-            &file.path,
-            &file.content,
-            &mut findings,
-            &mut seen,
-        );
+        if !is_license_path(&file.path) {
+            scan_text(&file.path, &file.content, &mut findings, &mut seen);
+        }
     }
     scan_text("SKILL.md", readme, &mut findings, &mut seen);
 
@@ -83,7 +80,9 @@ fn scan_text(path: &str, text: &str, findings: &mut Vec<Finding>, seen: &mut BTr
     {
         let regex = url_regex();
         for matched in regex.find_iter(text) {
-            let url = matched.as_str().trim_end_matches(['.', ',', ')', ']', '>', '"', '\'']);
+            let url = matched
+                .as_str()
+                .trim_end_matches(['.', ',', ')', ']', '>', '"', '\'']);
             if url.len() > 500 {
                 continue;
             }
@@ -177,7 +176,12 @@ const RULES: &[(&str, &str, &str, &[&str])] = &[
         "DESTRUCTIVE_COMMAND",
         "HIGH",
         "Contains a destructive shell command.",
-        &["rm -rf /", "del /f /s /q c:\\", "format c:", "remove-item -recurse -force"],
+        &[
+            "rm -rf /",
+            "del /f /s /q c:\\",
+            "format c:",
+            "remove-item -recurse -force",
+        ],
     ),
     (
         "SECRET_REQUEST",
@@ -187,15 +191,20 @@ const RULES: &[(&str, &str, &str, &[&str])] = &[
             "send your api key",
             "paste your token",
             "provide your password",
-            "private key",
-            "ssh key",
+            "send me your private key",
+            "upload your private key",
+            "share your ssh key",
         ],
     ),
     (
         "REMOTE_EXECUTION",
         "HIGH",
         "Describes fetching and executing remote code.",
-        &["download and run", "execute the downloaded", "run the script from the internet"],
+        &[
+            "download and run",
+            "execute the downloaded",
+            "run the script from the internet",
+        ],
     ),
     (
         "OVERRIDE_SAFETY",
@@ -228,6 +237,14 @@ fn push(
             file: file.map(str::to_string),
         });
     }
+}
+
+fn is_license_path(path: &str) -> bool {
+    let name = path.rsplit('/').next().unwrap_or(path).to_ascii_lowercase();
+    matches!(
+        name.as_str(),
+        "license" | "license.txt" | "license.md" | "copying" | "notice" | "notice.txt"
+    )
 }
 
 fn is_script_path(path: &str) -> bool {

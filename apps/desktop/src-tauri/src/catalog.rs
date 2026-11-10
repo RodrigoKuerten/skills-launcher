@@ -94,7 +94,7 @@ pub async fn sync_source(
             )?;
         }
         let count: i64 = tx.query_row(
-            "SELECT COUNT(*) FROM skills WHERE source_id=?1",
+            "SELECT COUNT(*) FROM skills WHERE source_id=?1 AND status IN ('ACTIVE','QUARANTINED')",
             params![source.id],
             |row| row.get(0),
         )?;
@@ -184,7 +184,7 @@ fn upsert_skill(
 ) -> AppResult<SkillOutcome> {
     let scan = security::scan(&discovered.files, &discovered.readme);
     let hash = content_hash(&discovered.files);
-    let quarantine = scan.risk_level == "HIGH" || scan.risk_level == "CRITICAL";
+    let quarantine = scan.risk_level == "CRITICAL";
     let status = if quarantine { "QUARANTINED" } else { "ACTIVE" };
     let license = discovered.license.clone().or(source.license.clone());
     let quality = quality_score(discovered, license.as_deref());
@@ -313,7 +313,11 @@ fn upsert_skill(
 fn unique_slug(tx: &Transaction<'_>, name: &str, source_path: &str) -> AppResult<String> {
     let base = slugify(name);
     let exists: Option<String> = tx
-        .query_row("SELECT id FROM skills WHERE slug=?1", params![base], |row| row.get(0))
+        .query_row(
+            "SELECT id FROM skills WHERE slug=?1",
+            params![base],
+            |row| row.get(0),
+        )
         .optional()?;
     if exists.is_none() {
         return Ok(base);
@@ -321,7 +325,11 @@ fn unique_slug(tx: &Transaction<'_>, name: &str, source_path: &str) -> AppResult
     let suffix = hex::encode(&sha2::Sha256::digest(source_path.as_bytes())[..3]);
     let candidate = format!("{base}-{suffix}");
     let exists: Option<String> = tx
-        .query_row("SELECT id FROM skills WHERE slug=?1", params![candidate], |row| row.get(0))
+        .query_row(
+            "SELECT id FROM skills WHERE slug=?1",
+            params![candidate],
+            |row| row.get(0),
+        )
         .optional()?;
     if exists.is_none() {
         return Ok(candidate);
@@ -360,7 +368,13 @@ fn fail_sync(db: &Db, run_id: &str, source: &Source, error: &AppError) -> AppRes
         )?;
         Ok(())
     })?;
-    let _ = db.log_operation("sync", None, None, "error", Some(&format!("{}: {}", source.name, message)));
+    let _ = db.log_operation(
+        "sync",
+        None,
+        None,
+        "error",
+        Some(&format!("{}: {}", source.name, message)),
+    );
     Ok(())
 }
 
@@ -457,8 +471,12 @@ fn map_skill_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SkillSummary> {
             created_at: row.get::<_, Option<String>>(24)?.unwrap_or_default(),
             files_count,
             security_score: row.get::<_, Option<i64>>(26)?.unwrap_or(100),
-            risk_level: row.get::<_, Option<String>>(27)?.unwrap_or_else(|| "LOW".into()),
-            status: row.get::<_, Option<String>>(28)?.unwrap_or_else(|| "PUBLISHED".into()),
+            risk_level: row
+                .get::<_, Option<String>>(27)?
+                .unwrap_or_else(|| "LOW".into()),
+            status: row
+                .get::<_, Option<String>>(28)?
+                .unwrap_or_else(|| "PUBLISHED".into()),
             commit_ref: row.get(29)?,
             findings,
         })
@@ -476,7 +494,8 @@ fn map_skill_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SkillSummary> {
         repository_url: row.get(7)?,
         source_id: row.get(8)?,
         source_name: row.get(9)?,
-        source_kind: SourceKind::from_str(&row.get::<_, String>(10)?).unwrap_or(SourceKind::HttpJson),
+        source_kind: SourceKind::from_str(&row.get::<_, String>(10)?)
+            .unwrap_or(SourceKind::HttpJson),
         trust: row.get(11)?,
         risk_level: row.get(12)?,
         security_score: row.get(13)?,
@@ -492,7 +511,8 @@ fn map_skill_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SkillSummary> {
 }
 
 fn load_hosts(conn: &Connection, skill_id: &str) -> AppResult<Vec<SkillHost>> {
-    let mut statement = conn.prepare("SELECT host,status,notes FROM skill_hosts WHERE skill_id=?1 ORDER BY host")?;
+    let mut statement =
+        conn.prepare("SELECT host,status,notes FROM skill_hosts WHERE skill_id=?1 ORDER BY host")?;
     let rows = statement.query_map(params![skill_id], |row| {
         Ok(SkillHost {
             host: row.get(0)?,
@@ -614,9 +634,11 @@ pub fn list_updates(db: &Db) -> AppResult<Vec<UpdateItem>> {
     let installations = list_installations(db)?;
     Ok(installations
         .into_iter()
-        .filter(|installation| installation.status == "INSTALLED"
-            && installation.latest_version_id.is_some()
-            && installation.version_id.as_deref() != installation.latest_version_id.as_deref())
+        .filter(|installation| {
+            installation.status == "INSTALLED"
+                && installation.latest_version_id.is_some()
+                && installation.version_id.as_deref() != installation.latest_version_id.as_deref()
+        })
         .map(|installation| UpdateItem {
             change_summary: "A newer version is available".into(),
             installation,
@@ -663,12 +685,14 @@ fn map_source_run(row: &rusqlite::Row<'_>) -> rusqlite::Result<SourceRun> {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
     use serde_json::json;
 
     fn fixture() -> std::path::PathBuf {
-        let root = std::env::temp_dir().join(format!("skills-launcher-test-{}", uuid::Uuid::new_v4()));
+        let root =
+            std::env::temp_dir().join(format!("skills-launcher-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(root.join("my-skill")).unwrap();
         std::fs::write(
             root.join("my-skill").join("SKILL.md"),
@@ -731,7 +755,8 @@ mod tests {
     #[tokio::test]
     #[ignore = "hits the real GitHub API"]
     async fn github_source_sync_smoke() {
-        let data = std::env::temp_dir().join(format!("skills-launcher-gh-{}", uuid::Uuid::new_v4()));
+        let data =
+            std::env::temp_dir().join(format!("skills-launcher-gh-{}", uuid::Uuid::new_v4()));
         let db = Db::open(&data).unwrap();
         let source = db
             .list_sources()
@@ -743,8 +768,64 @@ mod tests {
         let summary = sync_source(&db, &client, None, &data.join("tmp"), &source.id, "manual")
             .await
             .unwrap();
+        println!(
+            "found={} created={} updated={} unchanged={} blocked={}",
+            summary.found, summary.created, summary.updated, summary.unchanged, summary.blocked
+        );
         assert!(summary.found > 0, "expected public skills");
         assert!(summary.status == "ok");
+        let blocked = list_skills(
+            &db,
+            &SkillQuery {
+                include_blocked: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        for skill in blocked
+            .items
+            .iter()
+            .filter(|skill| skill.status != "ACTIVE")
+        {
+            println!(
+                "blocked {} risk={} score={}",
+                skill.name, skill.risk_level, skill.security_score
+            );
+            if let Some(version) = &skill.latest_version {
+                for finding in &version.findings {
+                    println!("  {} {} {:?}", finding.severity, finding.code, finding.file);
+                }
+            }
+        }
+        let _ = std::fs::remove_dir_all(data);
+    }
+
+    #[tokio::test]
+    #[ignore = "hits the real seeded GitHub sources"]
+    async fn seeded_sources_sync_smoke() {
+        let data =
+            std::env::temp_dir().join(format!("skills-launcher-all-{}", uuid::Uuid::new_v4()));
+        let db = Db::open(&data).unwrap();
+        let client = reqwest::Client::builder()
+            .user_agent("SkillsLauncher/0.2 (+https://skillslauncher.app)")
+            .build()
+            .unwrap();
+        let summaries = sync_all(&db, &client, None, &data.join("tmp"))
+            .await
+            .unwrap();
+        for summary in &summaries {
+            println!(
+                "{} status={} found={} created={} updated={} blocked={} error={:?}",
+                summary.source_id,
+                summary.status,
+                summary.found,
+                summary.created,
+                summary.updated,
+                summary.blocked,
+                summary.error
+            );
+        }
+        assert!(summaries.iter().map(|summary| summary.found).sum::<i64>() > 0);
         let _ = std::fs::remove_dir_all(data);
     }
 
@@ -821,6 +902,8 @@ pub fn create_source(db: &Db, input: SourceInput) -> AppResult<Source> {
 pub fn update_source(db: &Db, id: &str, input: SourceInput) -> AppResult<Source> {
     let input = normalize_source(input)?;
     let existing = get_source(db, id)?;
+    let location_changed =
+        existing.kind != input.kind || existing.url != input.url || existing.config != input.config;
     db.with_conn(|conn| {
         let duplicate: Option<String> = conn
             .query_row(
@@ -849,6 +932,16 @@ pub fn update_source(db: &Db, id: &str, input: SourceInput) -> AppResult<Source>
                 existing.id
             ],
         )?;
+        if location_changed {
+            conn.execute(
+                "UPDATE skills SET status='ARCHIVED',updated_at=?1 WHERE source_id=?2 AND status IN ('ACTIVE','QUARANTINED')",
+                params![now_iso(), existing.id],
+            )?;
+            conn.execute(
+                "UPDATE sources SET skill_count=(SELECT COUNT(*) FROM skills WHERE source_id=?1 AND status='ACTIVE') WHERE id=?1",
+                params![existing.id],
+            )?;
+        }
         Ok(())
     })?;
     get_source(db, id)
@@ -875,7 +968,13 @@ pub fn delete_source(db: &Db, id: &str) -> AppResult<()> {
         )?;
         Ok(())
     })?;
-    let _ = db.log_operation("source_remove", None, None, "success", Some("Source removed"));
+    let _ = db.log_operation(
+        "source_remove",
+        None,
+        None,
+        "success",
+        Some("Source removed"),
+    );
     Ok(())
 }
 
@@ -893,7 +992,9 @@ fn normalize_source(mut input: SourceInput) -> AppResult<SourceInput> {
     input.description = input.description.trim().to_string();
     input.trust = input.trust.trim().to_ascii_uppercase();
     if input.name.is_empty() || input.name.len() > 120 {
-        return Err(AppError::Validation("Source name must be 1–120 characters".into()));
+        return Err(AppError::Validation(
+            "Source name must be 1–120 characters".into(),
+        ));
     }
     if input.author.len() > 120 || input.description.len() > 2000 {
         return Err(AppError::Validation("Source details are too long".into()));
@@ -902,19 +1003,26 @@ fn normalize_source(mut input: SourceInput) -> AppResult<SourceInput> {
         return Err(AppError::Validation("Invalid source trust level".into()));
     }
     if !(30..=10080).contains(&input.interval_minutes) {
-        return Err(AppError::Validation("Sync interval must be 30–10080 minutes".into()));
+        return Err(AppError::Validation(
+            "Sync interval must be 30–10080 minutes".into(),
+        ));
     }
     sources::validate_source_url(&input.kind, &input.url)?;
     if matches!(input.kind, SourceKind::LocalDir | SourceKind::Zip) {
-        let path = std::fs::canonicalize(&input.url)
-            .map_err(|error| AppError::Validation(format!("Source path is not accessible: {error}")))?;
+        let path = crate::paths::canonical(Path::new(&input.url)).map_err(|error| {
+            AppError::Validation(format!("Source path is not accessible: {error}"))
+        })?;
         input.url = path.to_string_lossy().to_string();
     }
     if !input.config.is_object() {
-        return Err(AppError::Validation("Source configuration must be a JSON object".into()));
+        return Err(AppError::Validation(
+            "Source configuration must be a JSON object".into(),
+        ));
     }
     if input.config.to_string().len() > 20_000 {
-        return Err(AppError::Validation("Source configuration is too large".into()));
+        return Err(AppError::Validation(
+            "Source configuration is too large".into(),
+        ));
     }
     Ok(input)
 }
@@ -951,7 +1059,9 @@ pub fn import_sources(db: &Db, json_text: &str) -> AppResult<Vec<Source>> {
     let export: SourceExport = serde_json::from_str(json_text)
         .map_err(|error| AppError::Validation(format!("Invalid source export: {error}")))?;
     if export.format != "skills-launcher-sources" || export.version != 1 {
-        return Err(AppError::Validation("Unsupported source export format".into()));
+        return Err(AppError::Validation(
+            "Unsupported source export format".into(),
+        ));
     }
     let mut imported = Vec::new();
     for input in export.sources {
@@ -981,4 +1091,3 @@ pub fn import_sources(db: &Db, json_text: &str) -> AppResult<Vec<Source>> {
     );
     Ok(imported)
 }
-

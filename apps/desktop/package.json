@@ -11,6 +11,7 @@
     "ui:build": "vite build",
     "ui:preview": "vite preview --port 1420",
     "test": "vitest run",
+    "audit:ui": "node scripts/audit.mjs",
     "typecheck": "tsc --noEmit",
     "icons": "node scripts/tauri-with-msvc.mjs icon src-tauri/icon-source.png"
   },

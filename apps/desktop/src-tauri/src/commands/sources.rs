@@ -4,7 +4,7 @@ use crate::domain::{
 };
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_dialog::DialogExt;
 
@@ -68,6 +68,7 @@ pub async fn sync_source(
         .lock()
         .map_err(|_| AppError::Other("Token lock poisoned".into()))?
         .clone();
+    let _sync_guard = state.sync_lock.lock().await;
     let summary = catalog::sync_source(
         &state.db,
         &state.http,
@@ -77,7 +78,17 @@ pub async fn sync_source(
         "manual",
     )
     .await?;
+    let auto = {
+        let _guard = state
+            .install_lock
+            .lock()
+            .map_err(|_| AppError::Other("Install lock poisoned".into()))?;
+        crate::agents::auto_update(&state.db, &state.data_dir).unwrap_or_default()
+    };
     let _ = app.emit("catalog-updated", &summary);
+    if !auto.is_empty() {
+        let _ = app.emit("library-updated", &auto);
+    }
     Ok(summary)
 }
 
@@ -91,14 +102,20 @@ pub async fn sync_all_sources(
         .lock()
         .map_err(|_| AppError::Other("Token lock poisoned".into()))?
         .clone();
-    let summaries = catalog::sync_all(
-        &state.db,
-        &state.http,
-        token.as_deref(),
-        &state.temp_dir,
-    )
-    .await?;
+    let _sync_guard = state.sync_lock.lock().await;
+    let summaries =
+        catalog::sync_all(&state.db, &state.http, token.as_deref(), &state.temp_dir).await?;
+    let auto = {
+        let _guard = state
+            .install_lock
+            .lock()
+            .map_err(|_| AppError::Other("Install lock poisoned".into()))?;
+        crate::agents::auto_update(&state.db, &state.data_dir).unwrap_or_default()
+    };
     let _ = app.emit("catalog-updated", &summaries);
+    if !auto.is_empty() {
+        let _ = app.emit("library-updated", &auto);
+    }
     Ok(summaries)
 }
 
@@ -137,7 +154,7 @@ pub fn pick_source_path(
     let path = picked
         .into_path()
         .map_err(|error| AppError::Validation(format!("Invalid picked path: {error}")))?;
-    let canonical = std::fs::canonicalize(&path)
+    let canonical = crate::paths::canonical(&path)
         .map_err(|error| AppError::Validation(format!("Path is not accessible: {error}")))?;
     state
         .grants
@@ -154,7 +171,7 @@ fn require_grant(state: &AppState, input: &SourceInput) -> AppResult<()> {
     ) {
         return Ok(());
     }
-    let canonical = std::fs::canonicalize(&input.url)
+    let canonical = crate::paths::canonical(Path::new(&input.url))
         .map_err(|error| AppError::Validation(format!("Source path is not accessible: {error}")))?;
     let grants = state
         .grants

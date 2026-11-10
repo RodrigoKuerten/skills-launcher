@@ -1,6 +1,6 @@
 {
-  "name": "ai-skills-hub",
-  "version": "0.1.0",
+  "name": "skills-launcher",
+  "version": "0.2.0",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -31,6 +31,7 @@
   "devDependencies": {
     "@types/node": "^24.10.0",
     "effect": "^3.20.1",
+    "playwright-core": "^1.56.1",
     "tsx": "^4.23.15",
     "typescript": "5.9.3",
     "vitest": "4.1.12"

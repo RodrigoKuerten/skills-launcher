@@ -33,7 +33,7 @@ if (process.platform === "win32") {
   }
 
   const home = env.USERPROFILE || "";
-  env.PATH = `${path.join(home, ".cargo", "bin")};${env.PATH ?? ""}`;
+  env.PATH = `${path.join(home, ".cargo", "bin")};${path.dirname(process.execPath)};${env.PATH ?? ""}`;
 }
 
 const tauri = path.join(repoRoot, "node_modules/@tauri-apps/cli/tauri.js");

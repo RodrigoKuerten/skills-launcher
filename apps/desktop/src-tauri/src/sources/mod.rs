@@ -1,6 +1,4 @@
-use crate::domain::{
-    DiscoveredSkill, SkillFile, Source, SourceKind, SourceSyncResult,
-};
+use crate::domain::{DiscoveredSkill, SkillFile, Source, SourceKind, SourceSyncResult};
 use crate::error::{AppError, AppResult};
 use async_trait::async_trait;
 use reqwest::Client;
@@ -57,7 +55,11 @@ pub struct SkillMeta {
     pub version_label: Option<String>,
 }
 
-pub fn parse_skill_dir(root_name: &str, files: Vec<SkillFile>, meta: SkillMeta) -> Option<DiscoveredSkill> {
+pub fn parse_skill_dir(
+    root_name: &str,
+    files: Vec<SkillFile>,
+    meta: SkillMeta,
+) -> Option<DiscoveredSkill> {
     let skill_file = files
         .iter()
         .find(|file| file.path.eq_ignore_ascii_case("SKILL.md"))?;
@@ -68,7 +70,13 @@ pub fn parse_skill_dir(root_name: &str, files: Vec<SkillFile>, meta: SkillMeta) 
     let name = frontmatter_string(&frontmatter, "name")
         .map(|value| clean_inline(&value))
         .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| humanize(if meta.name_hint.is_empty() { root_name } else { &meta.name_hint }));
+        .unwrap_or_else(|| {
+            humanize(if meta.name_hint.is_empty() {
+                root_name
+            } else {
+                &meta.name_hint
+            })
+        });
     let description = frontmatter_string(&frontmatter, "description")
         .map(|value| clean_inline(&value))
         .filter(|value| !value.is_empty())
@@ -178,9 +186,28 @@ fn is_reserved_windows_name(component: &str) -> bool {
         .to_ascii_lowercase();
     matches!(
         stem.as_str(),
-        "con" | "prn" | "aux" | "nul" | "com1" | "com2" | "com3" | "com4" | "com5" | "com6"
-            | "com7" | "com8" | "com9" | "lpt1" | "lpt2" | "lpt3" | "lpt4" | "lpt5" | "lpt6"
-            | "lpt7" | "lpt8" | "lpt9"
+        "con"
+            | "prn"
+            | "aux"
+            | "nul"
+            | "com1"
+            | "com2"
+            | "com3"
+            | "com4"
+            | "com5"
+            | "com6"
+            | "com7"
+            | "com8"
+            | "com9"
+            | "lpt1"
+            | "lpt2"
+            | "lpt3"
+            | "lpt4"
+            | "lpt5"
+            | "lpt6"
+            | "lpt7"
+            | "lpt8"
+            | "lpt9"
     )
 }
 
@@ -204,6 +231,11 @@ pub fn validate_source_url(kind: &SourceKind, value: &str) -> AppResult<()> {
     }
     match kind {
         SourceKind::LocalDir => {
+            if value.starts_with("//") || value.starts_with(r"\\") {
+                return Err(AppError::Validation(
+                    "Network paths are not supported".into(),
+                ));
+            }
             let path = Path::new(value);
             if !path.is_absolute() || !path.is_dir() {
                 return Err(AppError::Validation(
@@ -212,6 +244,11 @@ pub fn validate_source_url(kind: &SourceKind, value: &str) -> AppResult<()> {
             }
         }
         SourceKind::Zip => {
+            if value.starts_with("//") || value.starts_with(r"\\") {
+                return Err(AppError::Validation(
+                    "Network paths are not supported".into(),
+                ));
+            }
             let path = Path::new(value);
             if !path.is_absolute() || !path.is_file() {
                 return Err(AppError::Validation(
@@ -251,9 +288,30 @@ pub fn validate_source_url(kind: &SourceKind, value: &str) -> AppResult<()> {
                     "Credentials must not be embedded in source URLs".into(),
                 ));
             }
+            let host = parsed.host_str().unwrap_or_default().to_ascii_lowercase();
+            if host == "localhost" || host.ends_with(".localhost") || is_private_ip(&host) {
+                return Err(AppError::Validation(
+                    "Remote sources must not target localhost or a private address".into(),
+                ));
+            }
         }
     }
     Ok(())
+}
+
+fn is_private_ip(host: &str) -> bool {
+    let Ok(address) = host.parse::<std::net::IpAddr>() else {
+        return false;
+    };
+    match address {
+        std::net::IpAddr::V4(address) => {
+            address.is_loopback()
+                || address.is_private()
+                || address.is_link_local()
+                || address.is_unspecified()
+        }
+        std::net::IpAddr::V6(address) => address.is_loopback() || address.is_unspecified(),
+    }
 }
 
 pub fn slugify(value: &str) -> String {
@@ -326,7 +384,11 @@ fn truncate_chars(value: &str, max: usize) -> String {
 fn first_paragraph(body: &str) -> Option<String> {
     for line in body.lines() {
         let line = line.trim();
-        if line.is_empty() || line.starts_with('#') || line.starts_with("```") || line.starts_with("---") {
+        if line.is_empty()
+            || line.starts_with('#')
+            || line.starts_with("```")
+            || line.starts_with("---")
+        {
             continue;
         }
         return Some(clean_inline(line.trim_start_matches(['-', '*', '>', ' '])));
@@ -374,21 +436,132 @@ fn frontmatter_string(value: &serde_yaml::Value, key: &str) -> Option<String> {
     }
 }
 
+#[cfg(test)]
+#[allow(clippy::items_after_test_module)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_windows_escape_paths() {
+        for path in [
+            "../outside",
+            "C:/outside",
+            "\\\\server\\share",
+            "folder\\file",
+            "CON",
+            "trailing. ",
+            "folder//file",
+        ] {
+            assert!(safe_relative_path(path).is_none(), "accepted {path}");
+        }
+        assert_eq!(
+            safe_relative_path("folder/SKILL.md").as_deref(),
+            Some("folder/SKILL.md")
+        );
+    }
+
+    #[test]
+    fn private_remote_hosts_are_rejected() {
+        for url in [
+            "https://localhost/catalog.json",
+            "https://127.0.0.1/catalog.json",
+            "https://10.0.0.2/catalog.json",
+            "https://192.168.1.4/catalog.json",
+        ] {
+            assert!(
+                validate_source_url(&SourceKind::HttpJson, url).is_err(),
+                "accepted {url}"
+            );
+        }
+        assert!(
+            validate_source_url(&SourceKind::HttpJson, "https://example.com/catalog.json").is_ok()
+        );
+    }
+}
+
 fn classify(text: &str) -> Option<String> {
     let text = text.to_ascii_lowercase();
     let rules: &[(&str, &[&str])] = &[
-        ("security", &["security", "threat", "vulnerab", "owasp", "auth", "secret"]),
-        ("frontend", &["react", "frontend", "css", "tailwind", "vue", "angular", "ui "]),
-        ("backend", &["backend", "api", "server", "endpoint", "spring", "express"]),
-        ("design", &["design", "ux", "accessib", "figma", "typography"]),
-        ("architecture", &["architecture", "refactor", "system design", "monorepo"]),
-        ("devops", &["docker", "kubernetes", "ci/cd", "deploy", "terraform", "github actions"]),
-        ("automation", &["automat", "workflow", "agent loop", "orchestrat"]),
-        ("ai", &["llm", "prompt", "rag", "embedding", "agent", "openai", "claude"]),
-        ("database", &["database", "sql", "postgres", "sqlite", "migration", "query"]),
-        ("testing", &["test", "tdd", "playwright", "vitest", "jest", "e2e", "coverage"]),
-        ("research", &["research", "source", "citation", "investigat"]),
-        ("productivity", &["plan", "document", "writing", "review", "workflow"]),
+        (
+            "security",
+            &["security", "threat", "vulnerab", "owasp", "auth", "secret"],
+        ),
+        (
+            "frontend",
+            &[
+                "react", "frontend", "css", "tailwind", "vue", "angular", "ui ",
+            ],
+        ),
+        (
+            "backend",
+            &["backend", "api", "server", "endpoint", "spring", "express"],
+        ),
+        (
+            "design",
+            &["design", "ux", "accessib", "figma", "typography"],
+        ),
+        (
+            "architecture",
+            &["architecture", "refactor", "system design", "monorepo"],
+        ),
+        (
+            "devops",
+            &[
+                "docker",
+                "kubernetes",
+                "ci/cd",
+                "deploy",
+                "terraform",
+                "github actions",
+            ],
+        ),
+        (
+            "automation",
+            &["automat", "workflow", "agent loop", "orchestrat"],
+        ),
+        (
+            "ai",
+            &[
+                "llm",
+                "prompt",
+                "rag",
+                "embedding",
+                "agent",
+                "openai",
+                "claude",
+            ],
+        ),
+        (
+            "database",
+            &[
+                "database",
+                "sql",
+                "postgres",
+                "sqlite",
+                "migration",
+                "query",
+            ],
+        ),
+        (
+            "testing",
+            &[
+                "test",
+                "tdd",
+                "playwright",
+                "vitest",
+                "jest",
+                "e2e",
+                "coverage",
+            ],
+        ),
+        (
+            "research",
+            &["research", "source", "citation", "investigat"],
+        ),
+        (
+            "productivity",
+            &["plan", "document", "writing", "review", "workflow"],
+        ),
     ];
     let mut best: Option<(&str, usize)> = None;
     for (category, terms) in rules {
