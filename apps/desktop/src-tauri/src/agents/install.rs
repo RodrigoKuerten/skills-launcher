@@ -234,6 +234,14 @@ fn restore_backup(
     if !backup_path.is_dir() {
         return Err(AppError::Validation("Backup files are missing".into()));
     }
+    if let Some(expected) = &backup.content_hash {
+        let actual = hash_tree(&backup_path)?;
+        if &actual != expected {
+            return Err(AppError::Security(
+                "Backup content failed its integrity check".into(),
+            ));
+        }
+    }
     create_backup(
         db,
         data_dir,
@@ -915,6 +923,42 @@ fn copy_tree(source: &Path, destination: &Path) -> AppResult<()> {
         }
     }
     Ok(())
+}
+
+fn hash_tree(source: &Path) -> AppResult<String> {
+    let mut hasher = Sha256::new();
+    for entry in WalkDir::new(source).follow_links(false).min_depth(1) {
+        let entry = entry
+            .map_err(|error| AppError::Validation(format!("Could not read backup: {error}")))?;
+        if entry
+            .metadata()
+            .map(|metadata| crate::paths::is_reparse(&metadata))
+            .unwrap_or(true)
+        {
+            return Err(AppError::Security(
+                "Symlinks and reparse points are not allowed in backups".into(),
+            ));
+        }
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let relative = entry
+            .path()
+            .strip_prefix(source)
+            .map_err(|_| AppError::Security("Backup path escaped its root".into()))?
+            .to_string_lossy()
+            .replace('\\', "/");
+        let Some(safe) = safe_relative_path(&relative) else {
+            return Err(AppError::Validation(format!(
+                "Backup contains an unsafe path: {relative}"
+            )));
+        };
+        let content = std::fs::read(entry.path())?;
+        hasher.update(safe.as_bytes());
+        hasher.update([0]);
+        hasher.update(&content);
+    }
+    Ok(hex::encode(hasher.finalize()))
 }
 
 fn copy_tree_manifest(
