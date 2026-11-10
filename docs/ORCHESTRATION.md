@@ -105,3 +105,23 @@ The follow-up hardening pass closed the remaining runtime findings: background a
 - Search uses the normalized `searchText` column; the remaining scale work is index/cursor paging.
 - A capped sync (40–100 roots per run) does not advance a cursor through a very large repo; use the CLI for larger backfills.
 - Background updates are opt-in and off by default; installed apps still need a reachable marketplace for manifests.
+
+## Desktop pivot and design audit (2026-11-10)
+
+The desktop pivot used the real ECC subagents available in this environment, coordinated from the main session:
+
+| Phase | Real ECC agent / skill | Output |
+| --- | --- | --- |
+| Competitor/license research | `general` research agent | `docs/research/competitors.md` |
+| Architecture review | `architect` | modular-monolith decision, security/install risks |
+| Rust backend + SQLite/source/agent engines | Orchestrator | `src-tauri` modules, tests, real source sync |
+| React UI implementation | `general` UI writer in a separate worktree | full screens, design system, typed IPC client |
+| Backend security review | `security-reviewer` | P1/P2 report; source caps, SSRF, scanner, backup and install fixes |
+| Visual/UX audit | `react-reviewer` + `frontend-ui-engineering` skill | prioritised design report; changes implemented in the main tree |
+| Verification | Playwright over WebView2, Cargo, TypeScript, clippy, NSIS | 0 console errors, 8 Rust tests, 0 npm vulnerabilities, installer smoke test |
+
+The design audit is evidence-led: real catalog data, real OpenCode detection, real install/uninstall, no mock rows. Baseline
+screenshots are in `docs/audit/before`; the reviewed result is in `docs/audit` and `docs/AUDIT.md`.
+
+Remaining unverified surfaces are stated in `docs/SECURITY.md`, `docs/AGENTS.md`, `docs/SOURCES.md` and `docs/AUDIT.md`:
+Linux/macOS runtime validation, project-scope installs, form dirty-state protection, and UI import/export automation.
