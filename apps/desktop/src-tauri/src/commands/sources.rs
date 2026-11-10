@@ -68,6 +68,7 @@ pub async fn sync_source(
         .lock()
         .map_err(|_| AppError::Other("Token lock poisoned".into()))?
         .clone();
+    let _sync_guard = state.sync_lock.lock().await;
     let summary = catalog::sync_source(
         &state.db,
         &state.http,
@@ -101,6 +102,7 @@ pub async fn sync_all_sources(
         .lock()
         .map_err(|_| AppError::Other("Token lock poisoned".into()))?
         .clone();
+    let _sync_guard = state.sync_lock.lock().await;
     let summaries =
         catalog::sync_all(&state.db, &state.http, token.as_deref(), &state.temp_dir).await?;
     let auto = {

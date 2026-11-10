@@ -14,6 +14,7 @@ pub struct AppState {
     pub github_token: Mutex<Option<String>>,
     pub grants: Mutex<HashSet<PathBuf>>,
     pub install_lock: Mutex<()>,
+    pub sync_lock: tokio::sync::Mutex<()>,
 }
 
 impl AppState {
@@ -33,6 +34,7 @@ impl AppState {
             github_token: Mutex::new(None),
             grants: Mutex::new(HashSet::new()),
             install_lock: Mutex::new(()),
+            sync_lock: tokio::sync::Mutex::new(()),
         })
     }
 }

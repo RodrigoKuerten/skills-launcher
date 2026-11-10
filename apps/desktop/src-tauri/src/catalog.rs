@@ -901,6 +901,8 @@ pub fn create_source(db: &Db, input: SourceInput) -> AppResult<Source> {
 pub fn update_source(db: &Db, id: &str, input: SourceInput) -> AppResult<Source> {
     let input = normalize_source(input)?;
     let existing = get_source(db, id)?;
+    let location_changed =
+        existing.kind != input.kind || existing.url != input.url || existing.config != input.config;
     db.with_conn(|conn| {
         let duplicate: Option<String> = conn
             .query_row(
@@ -929,6 +931,16 @@ pub fn update_source(db: &Db, id: &str, input: SourceInput) -> AppResult<Source>
                 existing.id
             ],
         )?;
+        if location_changed {
+            conn.execute(
+                "UPDATE skills SET status='ARCHIVED',updated_at=?1 WHERE source_id=?2 AND status IN ('ACTIVE','QUARANTINED')",
+                params![now_iso(), existing.id],
+            )?;
+            conn.execute(
+                "UPDATE sources SET skill_count=(SELECT COUNT(*) FROM skills WHERE source_id=?1 AND status='ACTIVE') WHERE id=?1",
+                params![existing.id],
+            )?;
+        }
         Ok(())
     })?;
     get_source(db, id)

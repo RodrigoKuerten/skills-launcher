@@ -56,6 +56,7 @@ fn main() {
                                 .lock()
                                 .ok()
                                 .and_then(|token| token.clone());
+                            let _sync_guard = state.sync_lock.lock().await;
                             if let Ok(summary) = catalog::sync_source(
                                 &state.db,
                                 &state.http,
