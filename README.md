@@ -85,6 +85,8 @@ do not use the loopback companion.
 - `docs/IPC_CONTRACT.md` — desktop command contract
 - `docs/SOURCES.md` — adapter configs, limits and scanner rules
 - `docs/AGENTS.md` — host matrix, detection evidence, install/backup/rollback
+- `docs/SECURITY.md` — security boundaries and residual risks
+- `docs/AUDIT.md` — Playwright design audit and screenshots
 - `docs/research/competitors.md` — source-linked competitor/license research
 - `docs/ARCHITECTURE.md` — earlier web/companion architecture
 
