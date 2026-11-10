@@ -184,7 +184,7 @@ fn upsert_skill(
 ) -> AppResult<SkillOutcome> {
     let scan = security::scan(&discovered.files, &discovered.readme);
     let hash = content_hash(&discovered.files);
-    let quarantine = scan.risk_level == "HIGH" || scan.risk_level == "CRITICAL";
+    let quarantine = scan.risk_level == "CRITICAL";
     let status = if quarantine { "QUARANTINED" } else { "ACTIVE" };
     let license = discovered.license.clone().or(source.license.clone());
     let quality = quality_score(discovered, license.as_deref());
@@ -767,8 +767,35 @@ mod tests {
         let summary = sync_source(&db, &client, None, &data.join("tmp"), &source.id, "manual")
             .await
             .unwrap();
+        println!(
+            "found={} created={} updated={} unchanged={} blocked={}",
+            summary.found, summary.created, summary.updated, summary.unchanged, summary.blocked
+        );
         assert!(summary.found > 0, "expected public skills");
         assert!(summary.status == "ok");
+        let blocked = list_skills(
+            &db,
+            &SkillQuery {
+                include_blocked: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        for skill in blocked
+            .items
+            .iter()
+            .filter(|skill| skill.status != "ACTIVE")
+        {
+            println!(
+                "blocked {} risk={} score={}",
+                skill.name, skill.risk_level, skill.security_score
+            );
+            if let Some(version) = &skill.latest_version {
+                for finding in &version.findings {
+                    println!("  {} {} {:?}", finding.severity, finding.code, finding.file);
+                }
+            }
+        }
         let _ = std::fs::remove_dir_all(data);
     }
 

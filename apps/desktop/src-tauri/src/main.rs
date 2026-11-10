@@ -17,6 +17,12 @@ use tauri::{Emitter, Manager};
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let data_dir = app
@@ -63,7 +69,9 @@ fn main() {
                                 let _ = handle.emit("catalog-updated", &summary);
                             }
                         }
-                        let _ = agents::auto_update(&state.db, &state.data_dir);
+                        if let Ok(_guard) = state.install_lock.lock() {
+                            let _ = agents::auto_update(&state.db, &state.data_dir);
+                        }
                     }
                     drop(state);
                     tokio::time::sleep(Duration::from_secs(300)).await;

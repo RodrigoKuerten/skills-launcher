@@ -13,6 +13,7 @@ pub struct AppState {
     pub temp_dir: PathBuf,
     pub github_token: Mutex<Option<String>>,
     pub grants: Mutex<HashSet<PathBuf>>,
+    pub install_lock: Mutex<()>,
 }
 
 impl AppState {
@@ -31,6 +32,7 @@ impl AppState {
             temp_dir,
             github_token: Mutex::new(None),
             grants: Mutex::new(HashSet::new()),
+            install_lock: Mutex::new(()),
         })
     }
 }

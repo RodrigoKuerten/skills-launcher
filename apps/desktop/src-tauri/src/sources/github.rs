@@ -13,6 +13,28 @@ const GITHUB_API: &str = "https://api.github.com";
 pub struct GithubRepoAdapter;
 pub struct GithubOrgAdapter;
 
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    #[ignore = "diagnostic network call"]
+    async fn diagnose_github_api() {
+        let client = reqwest::Client::builder()
+            .user_agent("SkillsLauncher/0.2 (+https://skillslauncher.app)")
+            .build()
+            .unwrap();
+        let response = client
+            .get("https://api.github.com/repos/anthropics/skills")
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
+            .send()
+            .await
+            .unwrap();
+        println!("status={}", response.status());
+        let body = response.text().await.unwrap();
+        println!("body={}", body.chars().take(500).collect::<String>());
+    }
+}
+
 #[derive(Debug, Default, Deserialize)]
 struct RepoConfig {
     repo: Option<String>,
@@ -151,14 +173,9 @@ async fn fetch_repo(
             segments.push(part);
         }
     }
-    let meta = match github_json::<RepoMeta>(ctx, meta_url.as_str()).await {
-        Ok(meta) => Some(meta),
-        Err(AppError::NotFound(_)) => {
-            return Err(AppError::NotFound("GitHub repository was not found".into()))
-        }
-        // The public archive endpoint still works when the metadata API is rate limited.
-        Err(_) => None,
-    };
+    // The public archive endpoint is authoritative and still works when the metadata API is
+    // rate limited or returns an unexpected status.
+    let meta = github_json::<RepoMeta>(ctx, meta_url.as_str()).await.ok();
     let explicit_branch = branch.map(str::trim).filter(|value| !value.is_empty());
     let branch = explicit_branch
         .map(str::to_string)

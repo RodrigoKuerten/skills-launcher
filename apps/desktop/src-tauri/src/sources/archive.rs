@@ -72,6 +72,62 @@ fn read_zip_file(source: &Source) -> AppResult<SourceSyncResult> {
     })
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+
+    fn zip_with(path: &str) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        {
+            let mut writer = zip::ZipWriter::new(Cursor::new(&mut bytes));
+            writer
+                .start_file(path, SimpleFileOptions::default())
+                .unwrap();
+            writer.write_all(b"# bad").unwrap();
+            writer.finish().unwrap();
+        }
+        bytes
+    }
+
+    #[test]
+    fn rejects_zip_traversal() {
+        let error = skills_from_zip(
+            &zip_with("../outside/SKILL.md"),
+            ZipMeta {
+                author: "test".into(),
+                source_url: "https://example.com".into(),
+                license: None,
+                stars: 0,
+                branch: None,
+                commit_ref: None,
+                subpath: None,
+            },
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("Unsafe path"));
+    }
+
+    #[test]
+    fn rejects_absolute_zip_path() {
+        let error = skills_from_zip(
+            &zip_with("C:/outside/SKILL.md"),
+            ZipMeta {
+                author: "test".into(),
+                source_url: "https://example.com".into(),
+                license: None,
+                stars: 0,
+                branch: None,
+                commit_ref: None,
+                subpath: None,
+            },
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("Unsafe path"));
+    }
+}
+
 pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredSkill>> {
     if bytes.len() as u64 > MAX_ARCHIVE_BYTES {
         return Err(AppError::Validation(

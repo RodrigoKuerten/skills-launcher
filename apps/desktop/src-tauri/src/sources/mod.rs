@@ -278,9 +278,30 @@ pub fn validate_source_url(kind: &SourceKind, value: &str) -> AppResult<()> {
                     "Credentials must not be embedded in source URLs".into(),
                 ));
             }
+            let host = parsed.host_str().unwrap_or_default().to_ascii_lowercase();
+            if host == "localhost" || host.ends_with(".localhost") || is_private_ip(&host) {
+                return Err(AppError::Validation(
+                    "Remote sources must not target localhost or a private address".into(),
+                ));
+            }
         }
     }
     Ok(())
+}
+
+fn is_private_ip(host: &str) -> bool {
+    let Ok(address) = host.parse::<std::net::IpAddr>() else {
+        return false;
+    };
+    match address {
+        std::net::IpAddr::V4(address) => {
+            address.is_loopback()
+                || address.is_private()
+                || address.is_link_local()
+                || address.is_unspecified()
+        }
+        std::net::IpAddr::V6(address) => address.is_loopback() || address.is_unspecified(),
+    }
 }
 
 pub fn slugify(value: &str) -> String {
@@ -402,6 +423,48 @@ fn frontmatter_string(value: &serde_yaml::Value, key: &str) -> Option<String> {
         serde_yaml::Value::String(value) => Some(value.clone()),
         serde_yaml::Value::Number(value) => Some(value.to_string()),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_windows_escape_paths() {
+        for path in [
+            "../outside",
+            "C:/outside",
+            "\\\\server\\share",
+            "folder\\file",
+            "CON",
+            "trailing. ",
+            "folder//file",
+        ] {
+            assert!(safe_relative_path(path).is_none(), "accepted {path}");
+        }
+        assert_eq!(
+            safe_relative_path("folder/SKILL.md").as_deref(),
+            Some("folder/SKILL.md")
+        );
+    }
+
+    #[test]
+    fn private_remote_hosts_are_rejected() {
+        for url in [
+            "https://localhost/catalog.json",
+            "https://127.0.0.1/catalog.json",
+            "https://10.0.0.2/catalog.json",
+            "https://192.168.1.4/catalog.json",
+        ] {
+            assert!(
+                validate_source_url(&SourceKind::HttpJson, url).is_err(),
+                "accepted {url}"
+            );
+        }
+        assert!(
+            validate_source_url(&SourceKind::HttpJson, "https://example.com/catalog.json").is_ok()
+        );
     }
 }
 

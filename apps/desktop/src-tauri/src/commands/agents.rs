@@ -29,6 +29,10 @@ pub async fn install_skill(
     request: InstallRequest,
 ) -> AppResult<InstallResponse> {
     let detected = agents::detect_all(&state.db).await?;
+    let _guard = state
+        .install_lock
+        .lock()
+        .map_err(|_| AppError::Other("Install lock poisoned".into()))?;
     let result = agents::install_skill(&state.db, &state.data_dir, &request, &detected)?;
     let _ = app.emit("library-updated", &result);
     Ok(result)
@@ -41,6 +45,10 @@ pub async fn update_installation(
     id: String,
 ) -> AppResult<InstallResponse> {
     let detected = agents::detect_all(&state.db).await?;
+    let _guard = state
+        .install_lock
+        .lock()
+        .map_err(|_| AppError::Other("Install lock poisoned".into()))?;
     let result = agents::update_installation(&state.db, &state.data_dir, &id, &detected)?;
     let _ = app.emit("library-updated", &result);
     Ok(result)
@@ -52,6 +60,10 @@ pub fn uninstall_skill(
     id: String,
     remove_files: bool,
 ) -> AppResult<()> {
+    let _guard = state
+        .install_lock
+        .lock()
+        .map_err(|_| AppError::Other("Install lock poisoned".into()))?;
     agents::uninstall_skill(&state.db, &state.data_dir, &id, remove_files)
 }
 
@@ -61,6 +73,10 @@ pub fn rollback_installation(
     id: String,
     backup_id: Option<String>,
 ) -> AppResult<InstallResponse> {
+    let _guard = state
+        .install_lock
+        .lock()
+        .map_err(|_| AppError::Other("Install lock poisoned".into()))?;
     agents::rollback_installation(&state.db, &state.data_dir, &id, backup_id.as_deref())
 }
 
@@ -97,6 +113,10 @@ pub fn apply_auto_updates(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> AppResult<Vec<crate::domain::InstallOutcome>> {
+    let _guard = state
+        .install_lock
+        .lock()
+        .map_err(|_| AppError::Other("Install lock poisoned".into()))?;
     let outcomes = agents::auto_update(&state.db, &state.data_dir)
         .map_err(|error| AppError::Other(error.to_string()))?;
     let _ = app.emit("library-updated", &outcomes);

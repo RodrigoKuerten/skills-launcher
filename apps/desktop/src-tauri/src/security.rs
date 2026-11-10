@@ -16,7 +16,9 @@ pub fn scan(files: &[SkillFile], readme: &str) -> ScanResult {
     let mut seen = BTreeSet::new();
 
     for file in files {
-        scan_text(&file.path, &file.content, &mut findings, &mut seen);
+        if !is_license_path(&file.path) {
+            scan_text(&file.path, &file.content, &mut findings, &mut seen);
+        }
     }
     scan_text("SKILL.md", readme, &mut findings, &mut seen);
 
@@ -189,8 +191,9 @@ const RULES: &[(&str, &str, &str, &[&str])] = &[
             "send your api key",
             "paste your token",
             "provide your password",
-            "private key",
-            "ssh key",
+            "send me your private key",
+            "upload your private key",
+            "share your ssh key",
         ],
     ),
     (
@@ -234,6 +237,14 @@ fn push(
             file: file.map(str::to_string),
         });
     }
+}
+
+fn is_license_path(path: &str) -> bool {
+    let name = path.rsplit('/').next().unwrap_or(path).to_ascii_lowercase();
+    matches!(
+        name.as_str(),
+        "license" | "license.txt" | "license.md" | "copying" | "notice" | "notice.txt"
+    )
 }
 
 fn is_script_path(path: &str) -> bool {
