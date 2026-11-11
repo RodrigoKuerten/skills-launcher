@@ -9,9 +9,9 @@ them current with backups and rollback.
 [![Skills Launcher Home screen](docs/audit/home.png)](docs/USER_GUIDE.md)
 
 > Automated scans are heuristics, not a security guarantee. Compatibility badges describe Agent Skills format support,
-> not a promise that a specific agent build will load every field. CI validates the real Tauri window on Ubuntu 24.04,
-> Ubuntu 26.04 and macOS, plus real detection/install paths for all seven agents; click-through GUI and packaged
-> installers there still need validation.
+> not a promise that a specific agent build will load every field. CI validates the real Tauri window and packaged
+> Linux `.deb` on Ubuntu 24.04/26.04 and macOS, plus real detection/install paths for all seven agents. Windows GUI
+> click-through remains manually validated.
 
 ## Documentation
 

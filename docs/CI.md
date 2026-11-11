@@ -2,8 +2,8 @@
 
 Workflow: `.github/workflows/cross-platform.yml`
 
-Latest fully green `main` run: <https://github.com/RodrigoKuerten/skills-launcher/actions/runs/43106648980>
-Commit: `59e1ebcb5714720b3a5387a1df6cc5484310257d`
+Validated `main` run: <https://github.com/RodrigoKuerten/skills-launcher/actions/runs/43117038197>
+Commit: `ed0b2d2f53ef845826ff00f2c57cec9d2022fee5`
 
 | Job | Runner | Result |
 | --- | --- | --- |
