@@ -108,6 +108,7 @@ jobs:
             - Real detection/install validation for Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI,
               Windsurf/Devin Desktop and OpenCode.
             - Risk levels are clickable and explain the scanner scale and install consequences.
+            - App/taskbar icon padding was normalized so the logo fills the Windows tile.
             - Ubuntu 24.04, Ubuntu 26.04, macOS and Windows builds are covered by CI.
 
             ### Notes
