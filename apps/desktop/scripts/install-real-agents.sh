@@ -19,7 +19,7 @@ curl https://cursor.com/install -fsS | bash
 
 if [ "$(uname -s)" = "Darwin" ]; then
   HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 \
-    brew install --cask --no-quarantine devin-desktop
+    brew install --cask devin-desktop
 else
   sudo install -d -m 0755 /etc/apt/keyrings
   curl -fsSL https://windsurf-stable.codeiumdata.com/wVxQEIWkwPUEAGf3/windsurf.gpg \
