@@ -326,12 +326,13 @@ export default function ExplorePage({ params }: ExplorePageProps) {
             aria-busy={loading}
             style={{ opacity: loading ? 0.65 : 1 }}
           >
-            {data.items.map((skill) => (
+            {data.items.map((skill, index) => (
               <SkillCard
                 key={skill.id}
                 skill={skill}
                 categoryLabel={skill.category ? (categoryNames.get(skill.category) ?? skill.category) : undefined}
                 onOpen={setSelectedId}
+                index={index}
               />
             ))}
           </div>

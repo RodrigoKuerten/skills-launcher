@@ -44,7 +44,7 @@ export function Button({
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cx(
-        "inline-flex select-none items-center justify-center font-medium transition-[background,border-color,color,box-shadow,transform] duration-150 disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex select-none items-center justify-center font-medium transition-[background,border-color,color,box-shadow,transform] duration-200 ease-[var(--ease-out)] active:scale-[0.985] disabled:pointer-events-none disabled:opacity-50",
         VARIANTS[variant],
         SIZES[size],
         className,

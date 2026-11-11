@@ -39,7 +39,7 @@ export function IconButton({
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cx(
-        "inline-flex shrink-0 items-center justify-center rounded-lg transition-colors duration-150 disabled:pointer-events-none disabled:opacity-45",
+        "inline-flex shrink-0 items-center justify-center rounded-lg transition-[background-color,border-color,color,transform] duration-200 ease-[var(--ease-out)] active:scale-95 disabled:pointer-events-none disabled:opacity-45",
         size === "sm" ? "size-7" : "size-8",
         variantClass,
         className,

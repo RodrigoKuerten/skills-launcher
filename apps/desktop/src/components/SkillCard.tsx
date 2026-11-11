@@ -1,4 +1,5 @@
-﻿import { ArrowUpRight, ShieldCheck, Star } from "lucide-react";
+﻿import type { CSSProperties } from "react";
+import { ArrowUpRight, ShieldCheck, Star } from "lucide-react";
 import { cx } from "../lib/cx";
 import { formatCompact } from "../lib/format";
 import { sourceKindIcon } from "../lib/icons";
@@ -11,6 +12,7 @@ export interface SkillCardProps {
   skill: SkillSummary;
   categoryLabel?: string;
   onOpen: (id: string) => void;
+  index?: number;
 }
 
 function securityTone(score: number): string {
@@ -19,7 +21,7 @@ function securityTone(score: number): string {
   return "text-danger";
 }
 
-export function SkillCard({ skill, categoryLabel, onOpen }: SkillCardProps) {
+export function SkillCard({ skill, categoryLabel, onOpen, index = 0 }: SkillCardProps) {
   const KindIcon = sourceKindIcon(skill.sourceKind);
   const quarantined =
     skill.status === "QUARANTINED" || skill.latestVersion?.status === "QUARANTINED";
@@ -38,11 +40,12 @@ export function SkillCard({ skill, categoryLabel, onOpen }: SkillCardProps) {
         }
       }}
       className={cx(
-        "group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[13px] border bg-surface/55 p-4 transition-[border-color,background,box-shadow] duration-200 hover:bg-surface/85 focus-visible:bg-surface/85",
+        "interactive-lift animate-card-in group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[13px] border bg-surface/55 p-4 hover:bg-surface/85 focus-visible:bg-surface/85",
         quarantined
           ? "border-danger/30 hover:border-danger/50"
-          : "border-line hover:border-brand/40 hover:shadow-[0_18px_50px_-32px_rgba(47,107,255,0.8)]",
+          : "border-line hover:border-brand/40",
       )}
+      style={{ "--stagger": index } as CSSProperties}
     >
       <div className="flex items-center gap-2 text-[11px] text-muted">
         <KindIcon className="size-3 shrink-0 text-muted-soft" aria-hidden="true" />

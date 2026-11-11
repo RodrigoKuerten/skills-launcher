@@ -22,6 +22,7 @@ import { APP_NAME, APP_VERSION } from "../lib/constants";
 import { cx } from "../lib/cx";
 import { errorMessage, formatInterval, parsePositiveInt } from "../lib/format";
 import { ipc } from "../lib/ipc";
+import { applyTheme } from "../lib/theme";
 import type { Settings, Theme } from "../lib/types";
 
 export default function SettingsPage() {
@@ -45,8 +46,7 @@ export default function SettingsPage() {
 
   const applySettings = (next: Settings) => {
     const nextTheme = next.theme === "light" ? "light" : "dark";
-    document.documentElement.dataset.theme = nextTheme;
-    document.documentElement.classList.toggle("dark", nextTheme === "dark");
+    applyTheme(nextTheme);
     setTheme(nextTheme);
     setAutoSync(next.autoSync);
     setIntervalText(String(next.autoSyncIntervalMinutes));

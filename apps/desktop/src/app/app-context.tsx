@@ -8,6 +8,7 @@ import {
 } from "react";
 import { errorMessage } from "../lib/format";
 import { ipc, onCatalogUpdated } from "../lib/ipc";
+import { applyTheme } from "../lib/theme";
 import type { Bootstrap } from "../lib/types";
 
 interface AppDataContextValue {
@@ -83,9 +84,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   useEffect(() => {
-    const theme = bootstrap?.settings.theme === "light" ? "light" : "dark";
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.classList.toggle("dark", theme === "dark");
+    applyTheme(bootstrap?.settings.theme === "light" ? "light" : "dark");
   }, [bootstrap?.settings.theme]);
 
   return (

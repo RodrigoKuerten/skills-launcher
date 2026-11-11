@@ -97,11 +97,12 @@ export default function HomePage() {
       <section className="relative overflow-hidden rounded-[18px] border border-line bg-panel/70">
         <div className="hero-grid pointer-events-none absolute inset-0" aria-hidden="true" />
         <div
-          className="pointer-events-none absolute -right-24 -top-32 size-[420px] rounded-full bg-brand/15 blur-3xl"
+          className="animate-ambient pointer-events-none absolute -right-24 -top-32 size-[420px] rounded-full bg-brand/15 blur-3xl"
           aria-hidden="true"
         />
         <div
-          className="pointer-events-none absolute -bottom-40 left-1/3 h-64 w-[480px] rounded-full bg-cyan/[0.06] blur-3xl"
+          className="animate-ambient pointer-events-none absolute -bottom-40 left-1/3 h-64 w-[480px] rounded-full bg-cyan/[0.06] blur-3xl"
+          style={{ animationDelay: "-7s" }}
           aria-hidden="true"
         />
 

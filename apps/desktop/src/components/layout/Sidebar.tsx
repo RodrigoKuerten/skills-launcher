@@ -112,7 +112,7 @@ export function Sidebar({ route }: SidebarProps) {
                         aria-current={active ? "page" : undefined}
                         aria-label={item.label}
                         className={cx(
-                          "group/item relative flex h-9 w-full items-center justify-center gap-2.5 rounded-lg px-2.5 text-xs font-medium transition-colors duration-150 lg:justify-start",
+                          "group/item relative flex h-9 w-full items-center justify-center gap-2.5 rounded-lg px-2.5 text-xs font-medium transition-colors duration-200 ease-[var(--ease-out)] lg:justify-start",
                           active
                             ? "bg-elevated/75 text-text"
                             : "text-muted hover:bg-text/[0.045] hover:text-text",

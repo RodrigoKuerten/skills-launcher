@@ -91,7 +91,7 @@ function AppShell() {
           ) : null}
           <div
             key={location.route}
-            className="mx-auto w-full max-w-[1240px] animate-fade-in px-4 py-6 sm:px-6 xl:px-7"
+            className="mx-auto w-full max-w-[1240px] animate-page-in px-4 py-6 sm:px-6 xl:px-7"
           >
             <PageForRoute location={location} />
           </div>

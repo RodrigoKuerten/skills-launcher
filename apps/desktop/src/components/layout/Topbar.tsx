@@ -16,7 +16,7 @@ export function Topbar({ route, onFocusSearch }: TopbarProps) {
   const shortcut = /Mac|iPhone|iPad/i.test(navigator.platform) ? "⌘ K" : "Ctrl K";
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line/70 bg-canvas/55 px-4 backdrop-blur-md sm:px-6 xl:px-7">
+    <header className="relative flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line/70 bg-canvas/55 px-4 backdrop-blur-md sm:px-6 xl:px-7">
       <div className="flex min-w-0 items-center gap-2 text-[11px]">
         <span className="hidden text-muted-soft sm:inline">{meta.eyebrow}</span>
         <span className="hidden text-muted/30 sm:inline" aria-hidden="true">
@@ -62,6 +62,11 @@ export function Topbar({ route, onFocusSearch }: TopbarProps) {
         ) : null}
         <SyncAllButton />
       </div>
+      {refreshing ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px overflow-hidden" aria-hidden="true">
+          <div className="animate-toolbar-progress h-full w-1/3 rounded-full bg-gradient-to-r from-transparent via-brand to-transparent" />
+        </div>
+      ) : null}
     </header>
   );
 }

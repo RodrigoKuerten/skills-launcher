@@ -1,4 +1,5 @@
-﻿import { ArrowRight, Compass, LayoutGrid } from "lucide-react";
+﻿import type { CSSProperties } from "react";
+import { ArrowRight, Compass, LayoutGrid } from "lucide-react";
 import { useAppData } from "../app/app-context";
 import { PageHeader } from "../components/layout/PageHeader";
 import { SyncAllButton } from "../components/SyncAllButton";
@@ -42,7 +43,7 @@ export default function CategoriesPage() {
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {categories.map((category) => {
+          {categories.map((category, index) => {
             const Icon = categoryIcon(category.icon);
             return (
               <button
@@ -50,7 +51,8 @@ export default function CategoriesPage() {
                 type="button"
                 disabled={category.skillCount === 0}
                 onClick={() => navigate("explore", { category: category.slug })}
-                className="group relative flex min-h-[132px] flex-col rounded-[13px] border border-line bg-surface/50 p-4 text-left transition-[border-color,background,box-shadow] duration-200 hover:border-brand/35 hover:bg-surface/80 hover:shadow-[0_18px_50px_-32px_rgba(47,107,255,0.65)] disabled:cursor-default disabled:opacity-65 disabled:hover:border-line disabled:hover:bg-surface/50 disabled:hover:shadow-none"
+                className="interactive-lift animate-card-in group relative flex min-h-[132px] flex-col rounded-[13px] border border-line bg-surface/50 p-4 text-left hover:border-brand/35 hover:bg-surface/80 disabled:cursor-default disabled:opacity-65 disabled:hover:transform-none disabled:hover:shadow-none"
+                style={{ "--stagger": index } as CSSProperties}
               >
                 <div className="flex items-start justify-between gap-3">
                   <span className="grid size-9 place-items-center rounded-[10px] border border-line bg-elevated/55 text-brand-soft">
