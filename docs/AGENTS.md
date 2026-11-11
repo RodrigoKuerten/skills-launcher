@@ -36,6 +36,8 @@ marked `manual: true` in detection results.
   it only uses the skills folder for installs.
 - Removing a manual entry is blocked while that host has `INSTALLED` skills, so an installation cannot be orphaned.
 - A real detection result can be overridden; the UI labels it **Manual entry**.
+- Linux CI runs `manual_agent_detect_install_uninstall` with a temporary home skills folder: manual detection,
+  install, uninstall and override removal.
 
 ## Install lifecycle
 

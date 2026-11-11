@@ -2,8 +2,8 @@
 
 Workflow: `.github/workflows/cross-platform.yml`
 
-Latest fully green `main` run: <https://github.com/RodrigoKuerten/skills-launcher/actions/runs/43100847158>
-Commit: `4c3dd0ad4bcaedb2c3e5ef14e6f450c1f8f6fa2e`
+Latest fully green `main` run: <https://github.com/RodrigoKuerten/skills-launcher/actions/runs/43106648980>
+Commit: `59e1ebcb5714720b3a5387a1df6cc5484310257d`
 
 | Job | Runner | Result |
 | --- | --- | --- |
@@ -23,7 +23,7 @@ Commit: `4c3dd0ad4bcaedb2c3e5ef14e6f450c1f8f6fa2e`
 
 All four test jobs run `npm ci`, the desktop TypeScript check, the Vite production build and `cargo test`.
 
-- Rust: 9 passing, 5 ignored. The ignored tests are network/machine diagnostics or require explicitly installed agents.
+- Rust: 9 passing, 6 ignored. The ignored tests are network/machine diagnostics or require explicitly installed agents/a manual-agent smoke flag.
 - `cargo clippy --all-targets -- -D warnings` is clean locally; it is not a separate CI step yet.
 
 ## Real agent jobs
@@ -91,10 +91,12 @@ sources.
 1. builds the Tauri `.deb` and AppImage;
 2. installs the `.deb` with `apt-get`;
 3. runs `seeded_sources_sync_smoke` against all 23 seeded sources;
-4. launches the **installed** `/usr/bin/skills-launcher` binary under Xvfb/DBus and verifies a rendered window.
+4. runs `manual_agent_detect_install_uninstall`: adds a manual Claude Code entry with a temporary skills folder
+   under the runner home, installs a local fixture, uninstalls it, and removes the manual entry;
+5. launches the **installed** `/usr/bin/skills-launcher` binary under Xvfb/DBus and verifies a rendered window.
 
-The 23-source sync completed with the expected catalog, and the installed package window rendered successfully.
-Screenshot: [Linux installed package](audit/linux-e2e-installed.png).
+The 23-source sync completed with the expected catalog, the manual-agent lifecycle passed, and the installed package
+window rendered successfully. Screenshot: [Linux installed package](audit/linux-e2e-installed.png).
 
 ## What this proves
 
@@ -113,4 +115,6 @@ Screenshot: [Linux installed package](audit/linux-e2e-installed.png).
 - Linux runs in Xvfb, not a physical desktop/compositor. macOS runs in a GitHub-hosted VM, not physical hardware.
 - The Linux `.deb` is installed and launched in CI; the AppImage and macOS `.dmg` are built and published but not
   installed interactively.
+- The manual-agent dialog was clicked through on Windows WebView2. Linux covers the same Tauri commands, install
+  lifecycle and rendered UI, but does not yet automate clicks inside the WebKitGTK dialog.
 - Screenshot/window checks are limited to the Home route on a clean database.
