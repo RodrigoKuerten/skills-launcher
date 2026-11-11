@@ -49,7 +49,7 @@ const HOSTS: &[HostDescriptor] = &[
     HostDescriptor {
         id: "cursor",
         name: "Cursor",
-        executables: &["cursor"],
+        executables: &["cursor-agent", "cursor"],
         user_root: ".cursor/skills",
         project_root: ".cursor/skills",
         docs_url: "https://cursor.com/docs/skills",
@@ -73,11 +73,11 @@ const HOSTS: &[HostDescriptor] = &[
     },
     HostDescriptor {
         id: "windsurf",
-        name: "Windsurf",
-        executables: &["windsurf"],
+        name: "Windsurf / Devin Desktop",
+        executables: &["devin-desktop", "windsurf"],
         user_root: ".codeium/windsurf/skills",
         project_root: ".windsurf/skills",
-        docs_url: "https://docs.windsurf.com/",
+        docs_url: "https://docs.devin.ai/desktop/devin-desktop-faq",
     },
 ];
 
@@ -176,15 +176,20 @@ async fn detect_one(db: &Db, descriptor: &HostDescriptor) -> AppResult<DetectedA
     let config_path = config_candidates(descriptor, &home)
         .into_iter()
         .find(|path| path.exists());
+    let github_copilot_cli = descriptor.id == "copilot"
+        && version
+            .as_deref()
+            .is_some_and(|value| value.to_ascii_lowercase().contains("github copilot"));
     if descriptor.id == "copilot"
         && detected
+        && !github_copilot_cli
         && config_path.is_none()
         && !has_copilot_extension(&home)
     {
         detected = false;
         executable = None;
         version = None;
-        notes.push("A generic copilot executable was found, but no Copilot config or VS Code extension evidence exists.".into());
+        notes.push("A generic copilot executable was found, but no GitHub Copilot CLI, config or VS Code extension evidence exists.".into());
     }
     let skills_root = join_relative(&home, descriptor.user_root);
     if detected {
@@ -325,11 +330,24 @@ fn app_candidates(host: &str) -> Vec<PathBuf> {
             "cursor" => paths.push(PathBuf::from(
                 "/Applications/Cursor.app/Contents/MacOS/Cursor",
             )),
-            "windsurf" => paths.push(PathBuf::from(
-                "/Applications/Windsurf.app/Contents/MacOS/Windsurf",
-            )),
+            "windsurf" => {
+                paths.push(PathBuf::from(
+                    "/Applications/Devin.app/Contents/MacOS/Devin",
+                ));
+                paths.push(PathBuf::from(
+                    "/Applications/Windsurf.app/Contents/MacOS/Windsurf",
+                ));
+            }
             _ => {}
         }
+    }
+    #[cfg(target_os = "linux")]
+    if host == "windsurf" {
+        paths.push(PathBuf::from("/usr/bin/devin-desktop"));
+        paths.push(PathBuf::from("/usr/share/devin-desktop/devin-desktop"));
+        paths.push(PathBuf::from("/opt/devin-desktop/devin-desktop"));
+        paths.push(PathBuf::from("/opt/windsurf/windsurf"));
+        paths.push(PathBuf::from("/usr/share/windsurf/windsurf"));
     }
     paths
 }

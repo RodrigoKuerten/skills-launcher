@@ -1219,14 +1219,21 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "requires a real OpenCode executable; CI sets SKILLS_LAUNCHER_EXPECT_OPENCODE=1"]
-    async fn real_opencode_detect_install_uninstall() {
-        if std::env::var("SKILLS_LAUNCHER_EXPECT_OPENCODE").as_deref() != Ok("1") {
-            eprintln!("skipping: SKILLS_LAUNCHER_EXPECT_OPENCODE is not set");
+    #[ignore = "requires real agent executables; CI sets SKILLS_LAUNCHER_EXPECT_HOSTS"]
+    async fn real_agents_detect_install_uninstall() {
+        let expected_hosts: Vec<String> = std::env::var("SKILLS_LAUNCHER_EXPECT_HOSTS")
+            .unwrap_or_else(|_| "opencode".into())
+            .split(',')
+            .map(str::trim)
+            .filter(|host| !host.is_empty())
+            .map(str::to_string)
+            .collect();
+        if expected_hosts.is_empty() {
+            eprintln!("skipping: SKILLS_LAUNCHER_EXPECT_HOSTS is empty");
             return;
         }
         let root = std::env::temp_dir().join(format!(
-            "skills-launcher-opencode-smoke-{}",
+            "skills-launcher-real-agents-smoke-{}",
             uuid::Uuid::new_v4()
         ));
         let data = root.join("data");
@@ -1234,7 +1241,7 @@ mod tests {
         std::fs::create_dir_all(&source_dir).unwrap();
         std::fs::write(
             source_dir.join("SKILL.md"),
-            "---\nname: CI OpenCode Smoke\ndescription: Verifies the real OpenCode host path.\nlicense: MIT\n---\n\nInstall and remove this fixture.\n",
+            "---\nname: CI Agent Smoke\ndescription: Verifies real agent host paths.\nlicense: MIT\n---\n\nInstall and remove this fixture.\n",
         )
         .unwrap();
 
@@ -1273,19 +1280,21 @@ mod tests {
             .expect("fixture skill was not indexed");
 
         let detected = crate::agents::detect_all(&db).await.unwrap();
-        let opencode = detected
-            .iter()
-            .find(|agent| agent.host == "opencode")
-            .expect("OpenCode host descriptor missing");
-        assert!(
-            opencode.detected,
-            "OpenCode was installed but not detected: {:?}",
-            opencode.notes
-        );
-        println!(
-            "detected OpenCode exe={:?} version={:?} skills={:?}",
-            opencode.executable_path, opencode.version, opencode.skills_path
-        );
+        for host in &expected_hosts {
+            let agent = detected
+                .iter()
+                .find(|agent| &agent.host == host)
+                .unwrap_or_else(|| panic!("agent host descriptor missing: {host}"));
+            assert!(
+                agent.detected,
+                "{host} was installed but not detected: {:?}",
+                agent.notes
+            );
+            println!(
+                "detected {host} exe={:?} version={:?} skills={:?}",
+                agent.executable_path, agent.version, agent.skills_path
+            );
+        }
 
         let response = install_skill(
             &db,
@@ -1293,34 +1302,51 @@ mod tests {
             &InstallRequest {
                 skill_id: skill.id.clone(),
                 version_id: None,
-                hosts: vec!["opencode".into()],
+                hosts: expected_hosts.clone(),
                 allow_risky: false,
             },
             &detected,
         )
         .unwrap();
-        let outcome = response
-            .outcomes
-            .into_iter()
-            .find(|outcome| outcome.host == "opencode")
-            .expect("OpenCode install outcome missing");
-        assert!(outcome.ok, "OpenCode install failed: {}", outcome.message);
-        let installed = PathBuf::from(outcome.install_path.expect("install path missing"));
-        let expected_root = dirs::home_dir().unwrap().join(".config/opencode/skills");
-        assert!(installed.starts_with(&expected_root));
-        assert!(installed.join("SKILL.md").is_file());
+        let mut installed = Vec::new();
+        for host in &expected_hosts {
+            let agent = detected.iter().find(|agent| &agent.host == host).unwrap();
+            let outcome = response
+                .outcomes
+                .iter()
+                .find(|outcome| &outcome.host == host)
+                .unwrap_or_else(|| panic!("install outcome missing: {host}"));
+            assert!(outcome.ok, "{host} install failed: {}", outcome.message);
+            let path = PathBuf::from(
+                outcome
+                    .install_path
+                    .clone()
+                    .unwrap_or_else(|| panic!("install path missing: {host}")),
+            );
+            let expected_root = PathBuf::from(
+                agent
+                    .skills_path
+                    .clone()
+                    .unwrap_or_else(|| panic!("skills path missing: {host}")),
+            );
+            assert!(path.starts_with(&expected_root));
+            assert!(path.join("SKILL.md").is_file(), "{host} SKILL.md missing");
+            installed.push((host.clone(), path));
+        }
 
-        let installation_id: String = db
-            .with_conn(|conn| {
-                Ok(conn.query_row(
-                    "SELECT id FROM installations WHERE skill_id=?1 AND host='opencode' AND status='INSTALLED'",
-                    params![skill.id],
-                    |row| row.get(0),
-                )?)
-            })
-            .unwrap();
-        uninstall_skill(&db, &data, &installation_id, true).unwrap();
-        assert!(!installed.exists(), "OpenCode skill was not removed");
+        for (host, path) in &installed {
+            let installation_id: String = db
+                .with_conn(|conn| {
+                    Ok(conn.query_row(
+                        "SELECT id FROM installations WHERE skill_id=?1 AND host=?2 AND status='INSTALLED'",
+                        params![&skill.id, host],
+                        |row| row.get(0),
+                    )?)
+                })
+                .unwrap();
+            uninstall_skill(&db, &data, &installation_id, true).unwrap();
+            assert!(!path.exists(), "{host} skill was not removed");
+        }
 
         let _ = std::fs::remove_dir_all(root);
     }

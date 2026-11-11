@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-24.04, ubuntu-26.04, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -34,17 +34,45 @@ jobs:
       - name: Rust tests
         working-directory: apps/desktop/src-tauri
         run: cargo test
-      - name: Install OpenCode CLI
-        if: runner.os != 'Windows'
+
+  agents:
+    name: agents / ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-24.04
+            os: ubuntu-24.04
+          - name: ubuntu-26.04
+            os: ubuntu-26.04
+          - name: macos
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
         run: |
-          npm install -g opencode-ai@1.19.5
-          opencode --version
-      - name: Real OpenCode detection and install
-        if: runner.os != 'Windows'
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libgtk-3-dev patchelf
+      - run: npm ci
+      - run: npm run ui:build -w @skills-launcher/desktop
+      - name: Install real AI agents
+        working-directory: apps/desktop
+        run: bash scripts/install-real-agents.sh
+      - name: Real agent detection, install and uninstall
         working-directory: apps/desktop/src-tauri
         env:
-          SKILLS_LAUNCHER_EXPECT_OPENCODE: "1"
-        run: cargo test real_opencode_detect_install_uninstall -- --ignored --nocapture
+          SKILLS_LAUNCHER_EXPECT_HOSTS: claude-code,codex,cursor,copilot,gemini-cli,windsurf,opencode
+        run: cargo test real_agents_detect_install_uninstall -- --ignored --nocapture
 
   runtime:
     name: runtime / ${{ matrix.name }}
@@ -52,8 +80,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: linux
+          - name: linux-24.04
             os: ubuntu-24.04
+          - name: linux-26.04
+            os: ubuntu-26.04
           - name: macos
             os: macos-latest
     runs-on: ${{ matrix.os }}
