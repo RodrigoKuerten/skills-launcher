@@ -67,6 +67,9 @@ GitHub Actions launches the release Tauri build and captures the real window on 
   Ubuntu 26.04 and macOS.
 - The rebuilt Windows app was installed over the existing database and **Sync all** was clicked in the real WebView2
   UI: 377 skills from 11 sources, 9 quarantined, 0 console errors. Screenshot: `audit/windows-home-11-sources.png`.
+- Risk badges now use a custom SVG shield and are clickable. A real click in the Windows WebView2 app opened the
+  four-level explanation with the current level, install consequences, scanner method and safety caveat. Escape closed
+  it with 0 console errors. [Screenshot](audit/risk-dialog.png).
 
 See `docs/CI.md` for the run link, versions, paths and limits.
 
