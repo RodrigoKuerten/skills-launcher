@@ -102,6 +102,8 @@ fn main() {
             commands::pick_source_path,
             commands::detect_agents,
             commands::set_agent_auto_install,
+            commands::set_manual_agent,
+            commands::clear_manual_agent,
             commands::install_skill,
             commands::update_installation,
             commands::uninstall_skill,

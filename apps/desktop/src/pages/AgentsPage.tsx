@@ -4,15 +4,20 @@ import {
   Bot,
   Cpu,
   Info,
+  Plus,
   RefreshCw,
   Terminal,
+  Trash2,
   TriangleAlert,
 } from "lucide-react";
 import { useAppData } from "../app/app-context";
 import { PageHeader } from "../components/layout/PageHeader";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
+import { Dialog } from "../components/ui/Dialog";
 import { EmptyState } from "../components/ui/EmptyState";
+import { Field, Input } from "../components/ui/Input";
+import { Select } from "../components/ui/Select";
 import { Skeleton } from "../components/ui/Skeleton";
 import { Switch } from "../components/ui/Switch";
 import { useToast } from "../components/ui/Toast";
@@ -29,6 +34,11 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [togglingHost, setTogglingHost] = useState<string | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualHost, setManualHost] = useState("claude-code");
+  const [manualExecutable, setManualExecutable] = useState("");
+  const [manualSkills, setManualSkills] = useState("");
+  const [manualSaving, setManualSaving] = useState(false);
 
   const detect = useCallback(async () => {
     setLoading(true);
@@ -67,6 +77,53 @@ export default function AgentsPage() {
   const detected = (agents ?? []).filter((agent) => agent.detected);
   const undetected = (agents ?? []).filter((agent) => !agent.detected);
 
+  const openManual = (host?: string) => {
+    const targetHost = host ?? undetected[0]?.host ?? HOSTS[0]?.id ?? "claude-code";
+    const agent = agents?.find((item) => item.host === targetHost);
+    setManualHost(targetHost);
+    setManualExecutable(agent?.executablePath ?? "");
+    setManualSkills(agent?.skillsPath ?? "");
+    setManualOpen(true);
+  };
+
+  const changeManualHost = (host: string) => {
+    const agent = agents?.find((item) => item.host === host);
+    setManualHost(host);
+    setManualExecutable(agent?.executablePath ?? "");
+    setManualSkills(agent?.skillsPath ?? "");
+  };
+
+  const saveManual = async () => {
+    setManualSaving(true);
+    try {
+      const result = await ipc.setManualAgent(
+        manualHost,
+        manualExecutable.trim() || null,
+        manualSkills.trim() || null,
+      );
+      setAgents(result);
+      setManualOpen(false);
+      toast.success(
+        "Agent added manually",
+        `${hostName(manualHost)} is now available for installs. You can remove the manual entry at any time.`,
+      );
+    } catch (reason) {
+      toast.error("Could not add the agent", errorMessage(reason));
+    } finally {
+      setManualSaving(false);
+    }
+  };
+
+  const clearManual = async (agent: DetectedAgent) => {
+    try {
+      const result = await ipc.clearManualAgent(agent.host);
+      setAgents(result);
+      toast.success("Manual entry removed", `${agent.name || hostName(agent.host)} was returned to normal detection.`);
+    } catch (reason) {
+      toast.error("Could not remove the manual entry", errorMessage(reason));
+    }
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -79,20 +136,27 @@ export default function AgentsPage() {
           </span>
         }
         actions={
-          <Button variant="secondary" size="sm" onClick={() => void detect()} loading={loading}>
-            {!(loading && !agents) ? <RefreshCw className="size-3.5" aria-hidden="true" /> : null}
-            Rescan
-          </Button>
+          <>
+            <Button variant="secondary" size="sm" onClick={() => openManual()}>
+              <Plus className="size-3.5" aria-hidden="true" />
+              Add manually
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => void detect()} loading={loading}>
+              {!(loading && !agents) ? <RefreshCw className="size-3.5" aria-hidden="true" /> : null}
+              Rescan
+            </Button>
+          </>
         }
       />
 
       <div className="flex items-start gap-3 rounded-xl border border-line bg-surface/40 px-4 py-3">
         <Info className="mt-0.5 size-4 shrink-0 text-brand-soft/75" aria-hidden="true" />
         <div>
-          <p className="text-[11px] font-medium text-text">Only detected agents can receive installs</p>
+          <p className="text-[11px] font-medium text-text">Only detected or manually added agents can receive installs</p>
           <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
-            Skills Launcher looks for a real installed app or executable, not just a config folder.
-            Everything else stays read-only and export-only.
+            Skills Launcher looks for a real installed app or executable, not just a config folder. If your agent is
+            installed in a non-standard place, add it manually below. Manual entries use the skills folder you provide;
+            it must stay inside your home directory.
           </p>
         </div>
       </div>
@@ -133,9 +197,15 @@ export default function AgentsPage() {
             title="No supported agents detected"
             description="Nothing matched on this machine. Install or start a supported agent, then rescan. Runtime evidence is required; an empty skill folder is not detection."
             action={
-              <Button variant="secondary" onClick={() => void detect()}>
-                Rescan agents
-              </Button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button variant="secondary" onClick={() => openManual()}>
+                  <Plus className="size-3.5" aria-hidden="true" />
+                  Add manually
+                </Button>
+                <Button variant="secondary" onClick={() => void detect()}>
+                  Rescan agents
+                </Button>
+              </div>
             }
           />
           <div className="rounded-[14px] border border-line bg-surface/35 p-4">
@@ -165,6 +235,7 @@ export default function AgentsPage() {
                   agent={agent}
                   toggling={togglingHost !== null}
                   onToggleAutoInstall={(checked) => void setAutoInstall(agent, checked)}
+                  onRemoveManual={() => void clearManual(agent)}
                 />
               ))}
             </div>
@@ -174,9 +245,15 @@ export default function AgentsPage() {
               title="No agent runtime found"
               description="None of the supported runtimes produced executable evidence. Install or start an agent, then rescan. A skills folder or config directory alone is not enough."
               action={
-                <Button variant="secondary" onClick={() => void detect()}>
-                  Rescan agents
-                </Button>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button variant="secondary" onClick={() => openManual()}>
+                    <Plus className="size-3.5" aria-hidden="true" />
+                    Add manually
+                  </Button>
+                  <Button variant="secondary" onClick={() => void detect()}>
+                    Rescan agents
+                  </Button>
+                </div>
               }
             />
           )}
@@ -190,7 +267,7 @@ export default function AgentsPage() {
                     <Badge tone="neutral">{undetected.length}</Badge>
                   </h2>
                   <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
-                    No runtime evidence. These hosts are listed for reference only and receive no writes.
+                    No runtime evidence found. If one is installed in a custom location, add it manually.
                   </p>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => void detect()}>
@@ -214,7 +291,13 @@ export default function AgentsPage() {
                         {agent.host}
                       </p>
                     </div>
-                    <span className="text-[11px] text-muted-soft">No runtime</span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="hidden text-[11px] text-muted-soft sm:inline">No runtime</span>
+                      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => openManual(agent.host)}>
+                        <Plus className="size-3" aria-hidden="true" />
+                        Add manually
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -229,6 +312,68 @@ export default function AgentsPage() {
           this host only; undetected hosts receive no writes and no skill content is executed.
         </p>
       </div>
+
+      <Dialog
+        open={manualOpen}
+        onOpenChange={setManualOpen}
+        title="Add agent manually"
+        description="Override detection for a supported agent when it is installed in a non-standard location."
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setManualOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" loading={manualSaving} onClick={() => void saveManual()}>
+              Save agent
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Field label="Agent" htmlFor="manual-agent">
+            <Select
+              id="manual-agent"
+              value={manualHost}
+              onChange={(event) => changeManualHost(event.target.value)}
+              options={HOSTS.map((host) => ({ value: host.id, label: host.name }))}
+            />
+          </Field>
+          <Field
+            label="Executable path"
+            htmlFor="manual-executable"
+            optional
+            hint="Absolute path to the agent executable. Leave blank to trust the skills folder alone."
+          >
+            <Input
+              id="manual-executable"
+              value={manualExecutable}
+              onChange={(event) => setManualExecutable(event.target.value)}
+              placeholder={manualHost === "opencode" ? "C:\\Users\\you\\AppData\\Local\\...\\opencode.exe" : "C:\\path\\to\\agent.exe"}
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </Field>
+          <Field
+            label="Skills folder"
+            htmlFor="manual-skills"
+            hint="Absolute folder where this agent loads user skills. It must stay inside your home directory."
+          >
+            <Input
+              id="manual-skills"
+              value={manualSkills}
+              onChange={(event) => setManualSkills(event.target.value)}
+              placeholder={agents?.find((agent) => agent.host === manualHost)?.skillsPath ?? ""}
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </Field>
+          <p className="rounded-lg border border-warn/25 bg-warn/[0.055] px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+            Manual entries override runtime detection but are not verified by Skills Launcher. The app never executes
+            the executable path; it only uses the skills folder for installs.
+          </p>
+        </div>
+      </Dialog>
     </div>
   );
 }
@@ -237,10 +382,12 @@ function DetectedAgentCard({
   agent,
   toggling,
   onToggleAutoInstall,
+  onRemoveManual,
 }: {
   agent: DetectedAgent;
   toggling: boolean;
   onToggleAutoInstall: (checked: boolean) => void;
+  onRemoveManual: () => void;
 }) {
   return (
     <article className="flex h-full flex-col rounded-[14px] border border-line bg-surface/55 p-4">
@@ -255,8 +402,8 @@ function DetectedAgentCard({
           <p className="mt-0.5 font-mono text-[11px] text-muted">{agent.host}</p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <Badge tone="ok" dot>
-            Detected
+          <Badge tone={agent.manual ? "warn" : "ok"} dot>
+            {agent.manual ? "Manual entry" : "Detected"}
           </Badge>
           {agent.supportsAgentSkills ? (
             <Badge tone="brand">Format: Agent Skills</Badge>
@@ -295,19 +442,27 @@ function DetectedAgentCard({
           <Cpu className="size-3 text-muted-soft" aria-hidden="true" />
           {agent.autoInstall ? "Auto-update is on" : "Manual updates"}
         </div>
-        {agent.supportsAgentSkills ? (
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-muted">Auto-update</span>
-            <Switch
-              checked={agent.autoInstall}
-              onCheckedChange={onToggleAutoInstall}
-              disabled={toggling}
-              label={`Toggle auto-update for ${agent.name || hostName(agent.host)}`}
-            />
-          </div>
-        ) : (
-          <span className="text-[11px] text-muted-soft">No automatic writes</span>
-        )}
+        <div className="flex items-center gap-2">
+          {agent.manual ? (
+            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={onRemoveManual}>
+              <Trash2 className="size-3" aria-hidden="true" />
+              Remove manual
+            </Button>
+          ) : null}
+          {agent.supportsAgentSkills ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted">Auto-update</span>
+              <Switch
+                checked={agent.autoInstall}
+                onCheckedChange={onToggleAutoInstall}
+                disabled={toggling}
+                label={`Toggle auto-update for ${agent.name || hostName(agent.host)}`}
+              />
+            </div>
+          ) : (
+            <span className="text-[11px] text-muted-soft">No automatic writes</span>
+          )}
+        </div>
       </div>
     </article>
   );

@@ -154,6 +154,20 @@ Use **Rescan** after installing or removing an agent. A configuration folder alo
 
 Supported agents: Claude Code, OpenAI Codex, OpenCode, Cursor, GitHub Copilot, Gemini CLI, and Windsurf/Devin Desktop.
 
+### Add an agent manually
+
+If an agent is installed in a non-standard location and detection still misses it, use **Add manually**.
+
+![Add agent manually](audit/agents-manual.png)
+
+1. Choose the supported agent.
+2. Optionally enter the absolute executable path.
+3. Set the absolute user skills folder. It must stay inside your home directory.
+4. Save. The agent appears as **Manual entry** and can receive installs.
+5. Use **Remove manual** when you no longer need the override. It is blocked while that host has installed skills.
+
+Manual entries are not verified by Skills Launcher. The executable path is never executed by the app; only the supplied skills folder is used for filesystem installs.
+
 ## Sources
 
 **Sources** feeds the catalog. Every skill keeps provenance from its source.

@@ -154,6 +154,7 @@ export interface DetectedAgent {
   host: string;
   name: string;
   detected: boolean;
+  manual: boolean;
   executablePath: string | null;
   version: string | null;
   configPath: string | null;

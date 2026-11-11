@@ -62,6 +62,14 @@ export const ipc = {
   detectAgents: () => call<DetectedAgent[]>("detect_agents"),
   setAgentAutoInstall: (host: string, enabled: boolean) =>
     call<DetectedAgent[]>("set_agent_auto_install", { host, enabled }),
+  setManualAgent: (host: string, executablePath?: string | null, skillsPath?: string | null) =>
+    call<DetectedAgent[]>("set_manual_agent", {
+      host,
+      executablePath: executablePath ?? null,
+      skillsPath: skillsPath ?? null,
+    }),
+  clearManualAgent: (host: string) =>
+    call<DetectedAgent[]>("clear_manual_agent", { host }),
   installSkill: (request: InstallRequest) =>
     call<InstallResponse>("install_skill", { request }),
   updateInstallation: (id: string) => call<InstallResponse>("update_installation", { id }),

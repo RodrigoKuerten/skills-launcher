@@ -25,6 +25,18 @@ The app probes versions with fixed arguments and a 3-second timeout. It never ex
 - `skillsPath` is the documented root even when the agent is not detected. It is a destination hint, not detection.
 - The UI should show evidence and paths, and never present a config-only directory as “detected”.
 
+## Manual overrides
+
+If a supported agent is installed in a non-standard location, **My Agents → Add manually** lets the user choose the
+host, an optional executable path, and the user skills folder. The entry is persisted as `agent_manual.<host>` and
+marked `manual: true` in detection results.
+
+- The skills folder must be an absolute path inside the user's home directory.
+- Manual entries bypass runtime detection but do not verify the executable. The app never executes the supplied path;
+  it only uses the skills folder for installs.
+- Removing a manual entry is blocked while that host has `INSTALLED` skills, so an installation cannot be orphaned.
+- A real detection result can be overridden; the UI labels it **Manual entry**.
+
 ## Install lifecycle
 
 1. Resolve the published immutable version from SQLite and re-verify its content hash.

@@ -230,6 +230,7 @@ pub struct DetectedAgent {
     pub host: String,
     pub name: String,
     pub detected: bool,
+    pub manual: bool,
     pub executable_path: Option<String>,
     pub version: Option<String>,
     pub config_path: Option<String>,

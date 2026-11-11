@@ -23,6 +23,31 @@ pub async fn set_agent_auto_install(
 }
 
 #[tauri::command]
+pub async fn set_manual_agent(
+    state: State<'_, AppState>,
+    host: String,
+    executable_path: Option<String>,
+    skills_path: Option<String>,
+) -> AppResult<Vec<DetectedAgent>> {
+    agents::set_manual_agent(
+        &state.db,
+        &host,
+        executable_path.as_deref(),
+        skills_path.as_deref(),
+    )?;
+    agents::detect_all(&state.db).await
+}
+
+#[tauri::command]
+pub async fn clear_manual_agent(
+    state: State<'_, AppState>,
+    host: String,
+) -> AppResult<Vec<DetectedAgent>> {
+    agents::clear_manual_agent(&state.db, &host)?;
+    agents::detect_all(&state.db).await
+}
+
+#[tauri::command]
 pub async fn install_skill(
     app: AppHandle,
     state: State<'_, AppState>,

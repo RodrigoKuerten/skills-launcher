@@ -74,6 +74,56 @@ jobs:
           SKILLS_LAUNCHER_EXPECT_HOSTS: claude-code,codex,cursor,copilot,gemini-cli,windsurf,opencode
         run: cargo test real_agents_detect_install_uninstall -- --ignored --nocapture
 
+  linux-e2e:
+    name: linux-e2e / ubuntu-24.04
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - name: Install Linux build/runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libgtk-3-dev patchelf xvfb dbus-x11 xdotool imagemagick x11-utils
+      - run: npm ci
+      - name: Build Linux packages
+        working-directory: apps/desktop
+        run: npm run build
+      - name: Install the Debian package
+        run: |
+          set -euo pipefail
+          deb="$(find apps/desktop/src-tauri/target/release/bundle/deb -name '*.deb' | head -n1)"
+          test -n "$deb"
+          sudo apt-get install -y "$deb"
+          command -v skills-launcher
+      - name: Sync all seeded sources on Linux
+        working-directory: apps/desktop/src-tauri
+        run: cargo test seeded_sources_sync_smoke -- --ignored --nocapture
+      - name: Launch installed Linux package
+        env:
+          WEBKIT_DISABLE_COMPOSITING_MODE: "1"
+          WEBKIT_DISABLE_DMABUF_RENDERER: "1"
+          GDK_BACKEND: x11
+          EVIDENCE_DIR: ${{ runner.temp }}/gui-evidence
+        run: |
+          set -euo pipefail
+          dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24" \
+            bash apps/desktop/scripts/gui-smoke-linux.sh "$(command -v skills-launcher)" "$EVIDENCE_DIR"
+      - name: Upload Linux package evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-e2e-evidence
+          path: ${{ runner.temp }}/gui-evidence
+          if-no-files-found: warn
+
   runtime:
     name: runtime / ${{ matrix.name }}
     strategy:

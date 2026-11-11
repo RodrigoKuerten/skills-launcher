@@ -3,9 +3,19 @@ mod install;
 use crate::db::Db;
 use crate::domain::DetectedAgent;
 use crate::error::{AppError, AppResult};
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tokio::process::Command;
+
+const MANUAL_AGENT_PREFIX: &str = "agent_manual.";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ManualAgentConfig {
+    pub executable_path: Option<String>,
+    pub skills_path: Option<String>,
+}
 
 pub use install::{
     auto_update, install_skill, list_backups, rollback_installation, uninstall_skill,
@@ -145,6 +155,126 @@ pub(crate) fn user_skills_root(descriptor: &HostDescriptor) -> AppResult<PathBuf
     Ok(join_relative(&home_dir()?, descriptor.user_root))
 }
 
+fn installed_count(db: &Db, host: &str) -> AppResult<i64> {
+    db.with_conn(|conn| {
+        Ok(conn.query_row(
+            "SELECT COUNT(*) FROM installations WHERE host=?1 AND status='INSTALLED'",
+            [host],
+            |row| row.get(0),
+        )?)
+    })
+}
+
+pub(crate) fn load_manual_agent(db: &Db, host: &str) -> AppResult<Option<ManualAgentConfig>> {
+    let Some(raw) = db.get_setting(&format!("{MANUAL_AGENT_PREFIX}{host}"))? else {
+        return Ok(None);
+    };
+    if raw.trim().is_empty() {
+        return Ok(None);
+    }
+    Ok(serde_json::from_str(&raw).ok())
+}
+
+/// The install root for a host, including a user-supplied manual skills path.
+pub(crate) fn configured_skills_root(db: &Db, host: &str) -> AppResult<PathBuf> {
+    if let Some(manual) = load_manual_agent(db, host)? {
+        if let Some(path) = manual.skills_path {
+            return Ok(PathBuf::from(path));
+        }
+    }
+    user_skills_root(descriptor(host)?)
+}
+
+pub fn set_manual_agent(
+    db: &Db,
+    host: &str,
+    executable_path: Option<&str>,
+    skills_path: Option<&str>,
+) -> AppResult<()> {
+    let descriptor = descriptor(host)?;
+    let home = crate::paths::canonical(&home_dir()?).map_err(AppError::Io)?;
+    let executable_path = executable_path
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .map(|path| {
+            if !path.is_absolute() || !path.is_file() {
+                return Err(AppError::Validation(
+                    "Manual executable must be an existing absolute file".into(),
+                ));
+            }
+            Ok(path.to_string_lossy().to_string())
+        })
+        .transpose()?;
+    let skills_path = skills_path
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .map(|path| {
+            if !path.is_absolute() {
+                return Err(AppError::Validation(
+                    "Manual skills folder must be an absolute path".into(),
+                ));
+            }
+            let canonical = crate::paths::canonical_or_create(&path).map_err(AppError::Io)?;
+            if !canonical.starts_with(&home) || canonical == home {
+                return Err(AppError::Security(
+                    "Manual skills folder must stay inside the user's home directory".into(),
+                ));
+            }
+            Ok(canonical.to_string_lossy().to_string())
+        })
+        .transpose()?;
+    let config = ManualAgentConfig {
+        executable_path,
+        skills_path,
+    };
+    let installed = installed_count(db, host)?;
+    let previous = load_manual_agent(db, host)?;
+    if installed > 0
+        && previous
+            .as_ref()
+            .and_then(|value| value.skills_path.as_ref())
+            != config.skills_path.as_ref()
+    {
+        return Err(AppError::Validation(
+            "Uninstall this agent's installed skills before changing its manual skills folder."
+                .into(),
+        ));
+    }
+    db.set_setting(
+        &format!("{MANUAL_AGENT_PREFIX}{host}"),
+        &serde_json::to_string(&config)
+            .map_err(|error| AppError::Other(format!("Could not encode agent config: {error}")))?,
+    )?;
+    let _ = db.log_operation(
+        "agent_manual",
+        None,
+        Some(host),
+        "success",
+        Some(&format!("{} added or updated manually", descriptor.name)),
+    );
+    Ok(())
+}
+
+pub fn clear_manual_agent(db: &Db, host: &str) -> AppResult<()> {
+    descriptor(host)?;
+    if installed_count(db, host)? > 0 {
+        return Err(AppError::Validation(
+            "Uninstall this agent's installed skills before removing the manual entry.".into(),
+        ));
+    }
+    db.delete_setting(&format!("{MANUAL_AGENT_PREFIX}{host}"))?;
+    let _ = db.log_operation(
+        "agent_manual",
+        None,
+        Some(host),
+        "success",
+        Some("Manual agent entry removed"),
+    );
+    Ok(())
+}
+
 fn join_relative(base: &Path, relative: &str) -> PathBuf {
     relative
         .split('/')
@@ -191,15 +321,31 @@ async fn detect_one(db: &Db, descriptor: &HostDescriptor) -> AppResult<DetectedA
         version = None;
         notes.push("A generic copilot executable was found, but no GitHub Copilot CLI, config or VS Code extension evidence exists.".into());
     }
-    let skills_root = join_relative(&home, descriptor.user_root);
+    let mut skills_root = join_relative(&home, descriptor.user_root);
+    let manual = load_manual_agent(db, descriptor.id)?;
+    let manual_mode = manual.is_some();
+    if let Some(manual) = manual {
+        detected = true;
+        if let Some(path) = &manual.executable_path {
+            executable = Some(PathBuf::from(path));
+        }
+        if let Some(path) = &manual.skills_path {
+            skills_root = PathBuf::from(path);
+            notes.push(format!("Manual skills root: {}", skills_root.display()));
+        }
+        notes.push("Manually added: detection was overridden by the user.".into());
+        if version.is_none() {
+            if let Some(executable) = &executable {
+                version = probe_version(executable).await;
+            }
+        }
+    }
     if detected {
-        notes.push(format!(
-            "Runtime evidence: {}",
-            executable
-                .as_ref()
-                .map(|path| path.display().to_string())
-                .unwrap_or_default()
-        ));
+        if let Some(executable) = &executable {
+            notes.push(format!("Runtime evidence: {}", executable.display()));
+        } else if manual_mode {
+            notes.push("No executable path was supplied for this manual entry.".into());
+        }
         notes.push(format!("Docs: {}", descriptor.docs_url));
     } else {
         notes.push(
@@ -228,6 +374,7 @@ async fn detect_one(db: &Db, descriptor: &HostDescriptor) -> AppResult<DetectedA
         host: descriptor.id.into(),
         name: descriptor.name.into(),
         detected,
+        manual: manual_mode,
         executable_path: executable.map(|path| path.to_string_lossy().to_string()),
         version,
         config_path: config_path.map(|path| path.to_string_lossy().to_string()),

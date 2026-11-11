@@ -422,6 +422,13 @@ impl Db {
         })
     }
 
+    pub fn delete_setting(&self, key: &str) -> AppResult<()> {
+        self.with_conn(|conn| {
+            conn.execute("DELETE FROM settings WHERE key=?1", params![key])?;
+            Ok(())
+        })
+    }
+
     pub fn settings(&self) -> AppResult<Settings> {
         let theme = self.get_setting("theme")?.unwrap_or_else(|| "dark".into());
         let auto_sync = self.get_setting("auto_sync")?.as_deref() == Some("true");

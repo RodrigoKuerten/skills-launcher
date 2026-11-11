@@ -53,7 +53,8 @@ normal shell can build.
   local directories, ZIP files, HTTPS Git repositories and versioned HTTP JSON catalogs. Add/edit/remove/enable/disable/sync, auto-sync and JSON
   import/export.
 - **Agents**: evidence-based detection for Claude Code, OpenAI Codex, OpenCode, Cursor, GitHub Copilot, Gemini CLI and
-  Windsurf / Devin Desktop. A config folder alone is never treated as an installation.
+  Windsurf / Devin Desktop. A config folder alone is never treated as an installation; supported agents in
+  non-standard locations can be added manually with a user-selected skills folder.
 - **Install lifecycle**: one-click install to one or many detected agents, update, uninstall, backup, rollback and an
   operation log. Existing untracked user files survive updates; old managed files are removed.
 - **Security**: imported content is untrusted data. Paths are validated, symlinks/reparse points and ZIP traversal are

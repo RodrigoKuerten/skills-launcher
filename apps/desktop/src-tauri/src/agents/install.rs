@@ -1,4 +1,4 @@
-use super::{descriptor, user_skills_root};
+use super::{configured_skills_root, descriptor, user_skills_root};
 use crate::db::Db;
 use crate::domain::{
     Backup, DetectedAgent, InstallOutcome, InstallRequest, InstallResponse, SkillFile,
@@ -111,21 +111,7 @@ pub fn update_installation(
     detected: &[DetectedAgent],
 ) -> AppResult<InstallResponse> {
     let installation = load_installation(db, id)?;
-    let host = descriptor(&installation.host)?;
-    let expected = user_skills_root(host)?.join(&load_skill(db, &installation.skill_id)?.slug);
-    if Path::new(&installation.install_path) != expected.as_path() {
-        return Err(AppError::Validation(
-            "The installed path changed. Uninstall it before installing again.".into(),
-        ));
-    }
     let skill = load_skill(db, &installation.skill_id)?;
-    let version = load_version(db, &skill, None)?;
-    if version.status == "QUARANTINED" || matches!(version.risk_level.as_str(), "HIGH" | "CRITICAL")
-    {
-        return Err(AppError::Security(
-            "The latest version is quarantined and cannot be auto-updated.".into(),
-        ));
-    }
     let Some(agent) = detected
         .iter()
         .find(|agent| agent.host == installation.host)
@@ -138,6 +124,23 @@ pub fn update_installation(
         return Ok(InstallResponse {
             outcomes: vec![failed(&installation.host, "Agent was not detected")],
         });
+    }
+    let expected = match &agent.skills_path {
+        Some(path) => PathBuf::from(path),
+        None => user_skills_root(descriptor(&installation.host)?)?,
+    }
+    .join(&skill.slug);
+    if Path::new(&installation.install_path) != expected.as_path() {
+        return Err(AppError::Validation(
+            "The installed path changed. Uninstall it before installing again.".into(),
+        ));
+    }
+    let version = load_version(db, &skill, None)?;
+    if version.status == "QUARANTINED" || matches!(version.risk_level.as_str(), "HIGH" | "CRITICAL")
+    {
+        return Err(AppError::Security(
+            "The latest version is quarantined and cannot be auto-updated.".into(),
+        ));
     }
     let outcome = install_one(db, data_dir, &skill, &version, agent, "pre_update");
     db.log_operation(
@@ -154,8 +157,7 @@ pub fn update_installation(
 
 pub fn uninstall_skill(db: &Db, data_dir: &Path, id: &str, remove_files: bool) -> AppResult<()> {
     let installation = load_installation(db, id)?;
-    let host = descriptor(&installation.host)?;
-    let root = user_skills_root(host)?;
+    let root = configured_skills_root(db, &installation.host)?;
     let target = PathBuf::from(&installation.install_path);
     let root = canonical_or_create(&root)?;
     let home = home_canonical()?;
@@ -202,7 +204,6 @@ pub fn uninstall_skill(db: &Db, data_dir: &Path, id: &str, remove_files: bool) -
             "Installation record removed"
         }),
     )?;
-    let _ = host;
     Ok(())
 }
 
@@ -214,8 +215,7 @@ pub fn rollback_installation(
 ) -> AppResult<InstallResponse> {
     let installation = load_installation(db, id)?;
     let backup = load_backup(db, backup_id, &installation)?;
-    let host = descriptor(&installation.host)?;
-    let root = canonical_or_create(&user_skills_root(host)?)?;
+    let root = canonical_or_create(&configured_skills_root(db, &installation.host)?)?;
     let target = PathBuf::from(&installation.install_path);
     ensure_target_under(&root, &target)?;
     reject_reparse(&target)?;
@@ -396,8 +396,10 @@ fn install_one(
     reason: &str,
 ) -> InstallOutcome {
     let result = (|| -> AppResult<String> {
-        let descriptor = descriptor(&agent.host)?;
-        let root = canonical_or_create(&user_skills_root(descriptor)?)?;
+        let root = match &agent.skills_path {
+            Some(path) => canonical_or_create(Path::new(path))?,
+            None => canonical_or_create(&user_skills_root(descriptor(&agent.host)?)?)?,
+        };
         let home = home_canonical()?;
         if !root.starts_with(&home) {
             return Err(AppError::Security(
@@ -1134,6 +1136,7 @@ mod tests {
             host: "claude-code".into(),
             name: "Claude Code".into(),
             detected: true,
+            manual: false,
             executable_path: None,
             version: None,
             config_path: None,
