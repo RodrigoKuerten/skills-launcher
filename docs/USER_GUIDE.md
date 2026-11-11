@@ -1,225 +1,245 @@
-# Guia de uso — Skills Launcher
+# User Guide — Skills Launcher
 
-Este guia mostra cada área do aplicativo com prints reais do desktop. Os prints podem mostrar contagens diferentes
-das suas, porque o catálogo local cresce conforme as fontes são sincronizadas.
+This guide walks through every screen of the desktop app with real screenshots. Counts can differ from yours because
+the local catalog grows as sources are synced. It is part of the repository documentation; start at the
+[README](../README.md) for the product overview.
 
-## Primeiros passos
+## Contents
 
-1. Abra **Sources** e sincronize as fontes que deseja.
-2. Abra **Explore**, pesquise e inspecione um skill.
-3. Abra **My Agents** e confirme qual agente foi detectado.
-4. No detalhe do skill, selecione o agente e clique em **Install on …**.
-5. Acompanhe instalações, atualizações e remoções em **Downloads**.
+- [Start here](#start-here)
+- [Home](#home)
+- [Explore](#explore)
+- [Categories](#categories)
+- [Skill detail](#skill-detail)
+- [Install a skill](#install-a-skill)
+- [Library](#library)
+- [Updates](#updates)
+- [My Agents](#my-agents)
+- [Sources](#sources)
+- [Downloads / Operations](#downloads--operations)
+- [Settings](#settings)
+- [Security and risk](#security-and-risk)
+- [Troubleshooting](#troubleshooting)
 
-> O Skills Launcher nunca executa código, scripts, hooks ou comandos de um skill importado. Ele valida, escaneia e
-> copia arquivos para o diretório do agente escolhido.
+## Start here
+
+1. Open **Sources** and sync the catalogs you want.
+2. Open **Explore**, search for a skill, and inspect it.
+3. Open **My Agents** and confirm which agents were detected.
+4. In the skill detail, select an agent and click **Install on …**.
+5. Track installs, updates, rollbacks, and removals in **Downloads**.
+
+> Skills Launcher never executes code, scripts, hooks, or commands from an imported skill. It validates, scans, and
+> copies files into the selected agent's directory.
 
 ## Home
 
-A Home concentra o estado do catálogo, a saúde das fontes, skills em destaque e as operações recentes.
+Home shows catalog health, source health, featured skills, and recent operations.
 
 ![Home](audit/home.png)
 
-- **Sync all**: sincroniza todas as fontes habilitadas.
-- **Sources / Catalog skills / Installed / Updates / At risk**: visão rápida do catálogo.
-- **Source health**: mostra fontes saudáveis, com erro ou nunca sincronizadas.
-- **Featured skills**: atalhos para skills de maior qualidade.
-- **Recent operations**: últimas sincronizações, instalações, atualizações e remoções.
+- **Sync all** syncs every enabled source.
+- **Sources / Catalog skills / Installed / Updates / At risk** give a quick catalog overview.
+- **Source health** shows healthy, failing, and never-synced sources.
+- **Featured skills** links to high-quality skills already in the catalog.
+- **Recent operations** shows the latest syncs, installs, updates, and removals.
 
 ## Explore
 
-Use **Explore** para pesquisar e filtrar o catálogo inteiro.
+Use **Explore** to search and filter the full catalog.
 
 ![Explore](audit/explore.png)
 
-- Pesquise por nome, resumo, autor ou conteúdo indexado.
-- Filtre por categoria, fonte, agente, confiança e risco.
-- **Include quarantined** mostra versões bloqueadas pelo scanner.
-- O seletor de ordenação alterna entre qualidade, recentes, nome, estrelas e segurança.
-- Clique em um card para abrir o detalhe do skill.
+- Search by name, summary, author, or indexed content.
+- Filter by category, source, agent, trust, and risk.
+- **Include quarantined** reveals versions blocked by the scanner.
+- Sorting switches between quality, recently updated, name, stars, and safety.
+- Click a card to open the skill detail.
 
-### Busca
+### Search
 
-![Busca no Explore](audit/explore-search.png)
+![Explore search](audit/explore-search.png)
 
-A busca é local e não envia sua consulta para nenhum servidor. Use `Ctrl K` no Windows/Linux ou `Cmd K` no macOS para
-focar a busca a partir de outras telas.
+Search is local and never sends your query to a server. Use `Ctrl K` on Windows/Linux or `Cmd K` on macOS to focus
+search from another screen.
 
-## Categorias
+## Categories
 
-**Categories** agrupa o catálogo por área e permite chegar ao Explore já filtrado.
+**Categories** groups the catalog by area and opens Explore with the category filter applied.
 
-![Categorias](audit/categories.png)
+![Categories](audit/categories.png)
 
-Categorias sem skills não são apresentadas como atalhos clicáveis vazios.
+Empty categories are not shown as dead-end shortcuts.
 
-## Detalhe do skill
+## Skill detail
 
-O painel lateral mostra tudo antes de instalar.
+The side sheet shows everything before you install.
 
-![Detalhe do skill](audit/skill-detail.png)
+![Skill detail](audit/skill-detail.png)
 
-- **Trust / Risk / category**: procedência, risco e classificação.
-- **Install targets**: somente agentes com evidência de runtime aparecem. Selecione um ou mais.
-- **Provenance**: versão, licença, autor, estrelas, fonte, atualização e repositório.
-- **Scan findings**: achados do scanner; clique no badge de risco para entender a escala.
-- **Agent compatibility**: compatibilidade conhecida com o formato Agent Skills.
-- **Install on …**: instala no agente selecionado. O texto muda para **Reinstall** quando já existe uma instalação.
+- **Trust / Risk / category**: provenance, risk, and classification.
+- **Install targets**: only agents with runtime evidence appear. Select one or more.
+- **Provenance**: version, license, author, stars, source, update time, and repository.
+- **Scan findings**: scanner results. Click any risk badge to open the scale explanation.
+- **Agent compatibility**: known Agent Skills format support.
+- **Install on …**: installs on the selected agent. The label becomes **Reinstall** when an installation already exists.
 
-### Explicação do risco
+### Risk explanation
 
-Clique em qualquer badge de risco, inclusive nos cards e nos findings.
+Click any risk badge, including badges on cards and scan findings.
 
-![Explicação do risco](audit/risk-dialog.png)
+![Risk explanation](audit/risk-dialog.png)
 
-O diálogo mostra:
+The dialog explains:
 
-- o nível atual;
-- o que Low, Medium, High e Critical significam;
-- o efeito na instalação;
-- como o scanner escolhe o nível;
-- o aviso de que a análise é heurística.
+- the current level;
+- what Low, Medium, High, and Critical mean;
+- what happens to installation;
+- how the scanner chooses the level;
+- that the scan is heuristic, not a guarantee.
 
-`High` exige liberar explicitamente a instalação. `Critical` fica em quarentena e a UI bloqueia a instalação.
+`High` requires explicitly allowing the install. `Critical` is quarantined and the UI blocks installation.
 
-## Instalar um skill
+## Install a skill
 
-1. Abra o detalhe do skill.
-2. Confira procedência, licença e findings.
-3. Selecione um agente detectado em **Install targets**.
-4. Clique em **Install on …**.
-5. Abra **Library** para confirmar.
+1. Open the skill detail.
+2. Review provenance, license, and findings.
+3. Select a detected agent under **Install targets**.
+4. Click **Install on …**.
+5. Open **Library** to confirm.
 
-O instalador cria um backup quando substitui uma pasta existente, faz staging, troca os arquivos e só então atualiza o
-banco. Arquivos extras não gerenciados pelo app são preservados em updates.
+When replacing an existing folder, the installer creates a backup, stages the new files, swaps them in, and only then
+updates the database. Untracked user files are preserved during updates.
 
 ## Library
 
-**Library** mostra o que está instalado, onde e em qual versão.
+**Library** shows what is installed, where, and at which version.
 
 ![Library](audit/library.png)
 
-Cada instalação oferece:
+Each installation provides:
 
-- **Update**, quando existe uma versão mais nova;
-- **Rollback/backups**, para restaurar uma versão anterior;
-- **Uninstall**, com opção de manter ou remover os arquivos instalados.
+- **Update** when a newer version exists;
+- **Rollback/backups** to restore an earlier version;
+- **Uninstall**, with an option to keep or remove installed files.
 
-O uninstall mantém o histórico e pode criar backup antes de remover arquivos.
+Uninstall keeps the history and can create a backup before files are removed.
 
 ## Updates
 
-**Updates** compara instalações com a versão mais recente de cada skill.
+**Updates** compares installations with the latest version of each skill.
 
 ![Updates](audit/updates.png)
 
-- **Check again** refaz a verificação.
-- Selecione uma ou várias atualizações e use **Update selected**.
-- Versões em quarentena ou com risco alto/crítico não são atualizadas automaticamente.
+- **Check again** refreshes the comparison.
+- Select one or more updates and use **Update selected**.
+- Quarantined versions and high/critical risk versions are not auto-updated.
 
 ## My Agents
 
-**My Agents** mostra somente agentes com evidência real de runtime.
+**My Agents** shows only agents with real runtime evidence.
 
-![Meus agentes](audit/agents.png)
+![My Agents](audit/agents.png)
 
-Cada agente detectado exibe:
+Each detected agent displays:
 
-- executável e versão;
-- configuração encontrada;
-- raiz de skills do usuário;
-- raiz de skills do projeto;
-- notas de evidência;
-- switch **Auto-update**.
+- executable and version;
+- discovered configuration;
+- user skills root;
+- project skills root;
+- evidence notes;
+- **Auto-update** switch.
 
-Use **Rescan** depois de instalar ou remover um agente. Pasta de configuração sozinha não conta como agente detectado.
+Use **Rescan** after installing or removing an agent. A configuration folder alone is never treated as a detected agent.
 
-Agentes suportados: Claude Code, OpenAI Codex, OpenCode, Cursor, GitHub Copilot, Gemini CLI e Windsurf/Devin Desktop.
+Supported agents: Claude Code, OpenAI Codex, OpenCode, Cursor, GitHub Copilot, Gemini CLI, and Windsurf/Devin Desktop.
 
 ## Sources
 
-**Sources** é onde o catálogo é alimentado. Cada source mantém sua procedência.
+**Sources** feeds the catalog. Every skill keeps provenance from its source.
 
 ![Sources](audit/sources.png)
 
-- **Add source**: adiciona uma fonte.
-- **Import / export**: troca a configuração das fontes entre instalações.
-- Ícone de sincronização: sincroniza somente aquela fonte.
-- Switch: habilita/desabilita a fonte.
-- Lápis: edita nome, URL, branch, caminho, confiança e política de sync.
-- Lixeira: remove a fonte do catálogo sem apagar skills já instalados.
+- **Add source** adds a catalog.
+- **Import / export** moves source configuration between installations.
+- The sync icon refreshes only that source.
+- The switch enables or disables the source.
+- The pencil edits name, URL, branch, path, trust, and sync policy.
+- The trash icon removes the source from the catalog without deleting installed skills.
 
-### Adicionar ou editar fonte
+### Add or edit a source
 
-![Formulário de source](audit/source-form.png)
+![Source form](audit/source-form.png)
 
-Tipos disponíveis:
+Available source types:
 
-| Tipo | Uso |
+| Type | Use |
 |---|---|
-| GitHub repository | Um repositório público com pastas com `SKILL.md`. |
-| GitHub organization | Descobre repositórios públicos de uma organização. |
-| Local folder | Uma pasta local, escolhida pelo seletor nativo. |
-| ZIP archive | Um arquivo ZIP local, lido em memória. |
-| Git repository | Clone raso via Git do sistema. |
-| HTTP JSON catalog | Catálogo JSON versionado pelo contrato do app. |
+| GitHub repository | A public repository containing folders with `SKILL.md`. |
+| GitHub organization | Discovers public repositories in an organization. |
+| Local folder | A local folder selected with the native picker. |
+| ZIP archive | A local ZIP read in memory. |
+| Git repository | Shallow clone through the system Git. |
+| HTTP JSON catalog | A versioned JSON catalog following the app contract. |
 
-Configure branch/caminho quando o `SKILL.md` não estiver na raiz. **Trust** é uma etiqueta declarada pela fonte, não uma
-assinatura de segurança.
+Set a branch/path when `SKILL.md` is not at the repository root. **Trust** is a source-declared label, not a security
+signature.
 
-### Importar e exportar fontes
+### Import and export sources
 
-![Importar e exportar](audit/source-transfer.png)
+![Import and export](audit/source-transfer.png)
 
-O JSON exportado contém nomes, URLs, configuração e trust. Não contém arquivos de skills nem credenciais. Caminhos
-locais podem aparecer; revise antes de compartilhar.
+The exported JSON contains names, URLs, configuration, and trust labels. It does not contain skill files or credentials.
+Local paths may be included; review the JSON before sharing it.
 
 ## Downloads / Operations
 
-**Downloads** é o diário local de operações.
+**Downloads** is the local operation journal.
 
 ![Downloads](audit/downloads.png)
 
-Acompanhe sincronizações, instalações, atualizações, rollbacks e remoções, com status e horário. Use essa tela para
-diagnosticar uma fonte que falhou ou confirmar o resultado de uma operação.
+Track syncs, installs, updates, rollbacks, and removals with status and timestamps. Use this screen to diagnose a failed
+source or confirm the result of an operation.
 
 ## Settings
 
 ![Settings](audit/settings.png)
 
-- **Appearance**: alterna entre tema escuro e claro.
-- **Auto-sync sources**: habilita a atualização periódica das fontes.
-- **Auto-sync interval**: intervalo entre 30 e 10.080 minutos.
-- **GitHub access**: token opcional para elevar o rate limit. O token fica somente em memória e não é gravado no SQLite.
-- **Save changes** aplica as configurações locais.
+- **Appearance**: switches between dark and light themes.
+- **Auto-sync sources**: enables periodic source refreshes.
+- **Auto-sync interval**: between 30 and 10,080 minutes.
+- **GitHub access**: optional token to raise the rate limit. It is held in memory only and never written to SQLite.
+- **Save changes** applies the local settings.
+- **User guide with screenshots** opens this document.
 
-### Tema claro
+### Light theme
 
-![Tema claro](audit/home-light.png)
+![Light theme](audit/home-light.png)
 
-### Janela compacta
+### Compact window
 
-![Layout 980x640](audit/home-980x640.png)
+![Compact 980x640 layout](audit/home-980x640.png)
 
-O layout mínimo suportado é `980x640`; a sidebar compacta aparece quando não há espaço para os rótulos.
+The minimum supported layout is `980x640`; the sidebar collapses when labels no longer fit.
 
-## Segurança e riscos
+## Security and risk
 
-O scanner examina o texto dos skills e procura prompt injection, comandos destrutivos, pedidos de segredos, execução
-remota, Unicode escondido e links suspeitos.
+The scanner examines skill text for prompt injection, destructive commands, secret requests, remote execution, hidden
+Unicode, and suspicious links.
 
-- **Low**: nenhuma regra bloqueante encontrada; não é garantia de segurança.
-- **Medium**: aviso que não bloqueia a instalação.
-- **High**: instalação bloqueada por padrão; exige confirmação explícita.
-- **Critical**: versão em quarentena; a UI bloqueia a instalação.
+- **Low**: no blocking rule matched; this is not a safety guarantee.
+- **Medium**: a warning that does not block installation.
+- **High**: installation is blocked by default and requires explicit confirmation.
+- **Critical**: the version is quarantined and the UI blocks installation.
 
-O score de 0 a 100 é independente do nível. O scanner é heurístico e não substitui revisar o conteúdo e a origem.
+The 0–100 score is independent of the level. The scanner is heuristic and does not replace reviewing the content and
+its source.
 
-## Solução de problemas
+## Troubleshooting
 
-- **Agente não aparece**: instale o executável real, confira o `PATH` e use **Rescan**.
-- **Fonte falhou**: veja o erro em **Sources** e o histórico em **Downloads**.
-- **Não consigo instalar**: confirme que o agente foi detectado, que o skill não está em quarentena e que não há
-  uma pasta não gerenciada no destino.
-- **Atualização não aparece**: sincronize a fonte e use **Check again** em Updates.
-- **Quero desfazer**: abra o histórico da instalação na Library, escolha um backup e use **Restore backup**.
+- **Agent does not appear**: install the real executable, check `PATH`, and use **Rescan**.
+- **Source failed**: check the error in **Sources** and the history in **Downloads**.
+- **Cannot install**: confirm the agent was detected, the skill is not quarantined, and there is no unmanaged folder at
+  the destination.
+- **Update does not appear**: sync the source and use **Check again** in Updates.
+- **Undo a change**: open the installation's history in Library, select a backup, and use **Restore backup**.

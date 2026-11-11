@@ -6,10 +6,30 @@ One library for every AI agent. Skills Launcher is a desktop-first universal ski
 verifiable sources, inspect provenance and security findings, install them into the agents you actually have, and keep
 them current with backups and rollback.
 
+[![Skills Launcher Home screen](docs/audit/home.png)](docs/USER_GUIDE.md)
+
 > Automated scans are heuristics, not a security guarantee. Compatibility badges describe Agent Skills format support,
 > not a promise that a specific agent build will load every field. CI validates the real Tauri window on Ubuntu 24.04,
 > Ubuntu 26.04 and macOS, plus real detection/install paths for all seven agents; click-through GUI and packaged
 > installers there still need validation.
+
+## Documentation
+
+Start with the **[User Guide with screenshots](docs/USER_GUIDE.md)**. It covers every screen and workflow: Home, Explore,
+Categories, skill detail, risk explanations, installation, Library, Updates, My Agents, Sources, import/export,
+Downloads, Settings, themes, security, and troubleshooting.
+
+| Guide | What it covers |
+|---|---|
+| [User Guide](docs/USER_GUIDE.md) | Step-by-step usage with screenshots of every feature |
+| [Sources](docs/SOURCES.md) | Adapters, seeded catalogs, limits, and scanner rules |
+| [Agents](docs/AGENTS.md) | Detection evidence, host paths, install/backup/rollback |
+| [Security](docs/SECURITY.md) | Trust boundaries, path protections, and residual risks |
+| [Releases](docs/RELEASES.md) | Release assets, checksums, and publishing workflow |
+| [CI](docs/CI.md) | Ubuntu 24.04/26.04, macOS, Windows, and seven-agent evidence |
+| [Design audit](docs/AUDIT.md) | Playwright screenshots and UI findings |
+| [Desktop plan](docs/DESKTOP_PLAN.md) | Scope, architecture boundaries, and acceptance checks |
+| [IPC contract](docs/IPC_CONTRACT.md) | Desktop command contract |
 
 ## Desktop app (primary product)
 
@@ -82,20 +102,6 @@ npm run dev              # http://localhost:3000
 
 Legacy companion commands (`npm run agent`, `npm run agent:cli`) still exist for the web application. Desktop installs
 do not use the loopback companion.
-
-## Documentation
-
-- `docs/DESKTOP_PLAN.md` — scope, architecture boundaries and visual identity
-- `docs/IPC_CONTRACT.md` — desktop command contract
-- `docs/SOURCES.md` — adapter configs, limits and scanner rules
-- `docs/AGENTS.md` — host matrix, detection evidence, install/backup/rollback
-- `docs/SECURITY.md` — security boundaries and residual risks
-- `docs/USER_GUIDE.md` - guia de uso com prints de cada funcionalidade
-- `docs/AUDIT.md` - Playwright design audit and screenshots
-- `docs/CI.md` - Ubuntu 24.04/26.04, macOS GUI and seven-agent test evidence
-- `docs/RELEASES.md` - release assets, checksums and publishing workflow
-- `docs/research/competitors.md` — source-linked competitor/license research
-- `docs/ARCHITECTURE.md` — earlier web/companion architecture
 
 ## License
 
