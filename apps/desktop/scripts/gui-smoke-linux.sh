@@ -23,16 +23,24 @@ for _ in $(seq 1 30); do
     cat "$log" >&2
     exit 1
   fi
-  window="$(xdotool search --name 'Skills Launcher' 2>/dev/null | head -n1 || true)"
-  if [ -z "$window" ]; then
-    window="$(xdotool search --class 'skills-launcher' 2>/dev/null | head -n1 || true)"
+  candidates="$(xdotool search --name 'Skills Launcher' 2>/dev/null || true)"
+  if [ -z "$candidates" ]; then
+    candidates="$(xdotool search --class 'skills-launcher' 2>/dev/null || true)"
   fi
-  [ -n "$window" ] && break
+  for candidate in $candidates; do
+    WIDTH=0
+    HEIGHT=0
+    eval "$(xdotool getwindowgeometry --shell "$candidate" 2>/dev/null || true)"
+    if [ "${WIDTH:-0}" -ge 980 ] && [ "${HEIGHT:-0}" -ge 640 ]; then
+      window="$candidate"
+      break 2
+    fi
+  done
   sleep 1
 done
 
 if [ -z "$window" ]; then
-  echo "Skills Launcher window was not found" >&2
+  echo "Skills Launcher main window was not found at the configured minimum size (980x640)" >&2
   cat "$log" >&2
   xwininfo -root -tree 2>&1 | head -n80 >&2 || true
   exit 1
@@ -40,10 +48,6 @@ fi
 
 eval "$(xdotool getwindowgeometry --shell "$window")"
 echo "window=$window size=${WIDTH}x${HEIGHT}"
-if [ "$WIDTH" -lt 980 ] || [ "$HEIGHT" -lt 640 ]; then
-  echo "window is smaller than the configured minimum (980x640)" >&2
-  exit 1
-fi
 
 # Let React finish its first paint before capturing.
 sleep 2
