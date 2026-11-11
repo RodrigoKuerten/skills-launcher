@@ -200,21 +200,26 @@ async fn fetch_repo(
         }
     }
 
-    let bytes = match download_codeload(ctx, repo, &branch).await? {
-        Some(bytes) => bytes,
-        None if explicit_branch.is_none() && branch == "main" => {
-            download_codeload(ctx, repo, "master")
-                .await?
-                .ok_or_else(|| {
-                    AppError::NotFound("GitHub repository has no main or master branch".into())
-                })?
+    let mut candidates = vec![branch.clone()];
+    if explicit_branch.is_none() && meta.is_none() {
+        for fallback in ["master", "develop"] {
+            if !candidates.iter().any(|candidate| candidate == fallback) {
+                candidates.push(fallback.to_string());
+            }
         }
-        None => {
-            return Err(AppError::NotFound(format!(
-                "GitHub branch '{branch}' was not found"
-            )))
+    }
+    let mut selected = None;
+    for candidate in candidates {
+        if let Some(bytes) = download_codeload(ctx, repo, &candidate).await? {
+            selected = Some((candidate, bytes));
+            break;
         }
-    };
+    }
+    let (branch, bytes) = selected.ok_or_else(|| {
+        AppError::NotFound(
+            "GitHub branch was not found (tried the default, main, master and develop)".into(),
+        )
+    })?;
     let license = meta
         .as_ref()
         .and_then(|meta| meta.license.as_ref())

@@ -28,7 +28,7 @@ import { ipc } from "../lib/ipc";
 import type { DetectedAgent } from "../lib/types";
 
 export default function AgentsPage() {
-  const { revision } = useAppData();
+  const { revision, refresh } = useAppData();
   const toast = useToast();
   const [agents, setAgents] = useState<DetectedAgent[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,10 +49,23 @@ export default function AgentsPage() {
     } catch (reason) {
       setAgents(null);
       setError(errorMessage(reason, "Agent detection failed."));
-    } finally {
       setLoading(false);
+      return;
     }
-  }, []);
+    setLoading(false);
+    try {
+      const scan = await ipc.scanInstalledSkills();
+      if (scan.imported > 0) {
+        toast.success(
+          "Existing skills found",
+          `${scan.imported} skill${scan.imported === 1 ? "" : "s"} already on disk were added to the Library.`,
+        );
+        await refresh();
+      }
+    } catch {
+      // Detection still works even if an agent's skills folder cannot be scanned.
+    }
+  }, [refresh, toast]);
 
   useEffect(() => {
     void detect();

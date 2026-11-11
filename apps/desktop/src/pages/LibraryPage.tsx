@@ -64,6 +64,7 @@ export default function LibraryPage() {
   const toast = useToast();
   const [installations, setInstallations] = useState<Installation[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [host, setHost] = useState("");
@@ -79,6 +80,27 @@ export default function LibraryPage() {
   const [backupsError, setBackupsError] = useState<string | null>(null);
   const [selectedBackupId, setSelectedBackupId] = useState<string | null>(null);
   const [rollbackConfirm, setRollbackConfirm] = useState<{ installation: Installation; backup: Backup } | null>(null);
+
+  const scanInstalled = async () => {
+    setScanning(true);
+    try {
+      const result = await ipc.scanInstalledSkills();
+      if (result.imported > 0) {
+        toast.success(
+          "Existing skills found",
+          `${result.imported} skill${result.imported === 1 ? "" : "s"} already on disk were added to the Library.`,
+        );
+      } else {
+        toast.success("No new installed skills", "Your Library is already up to date.");
+      }
+      await load();
+      await refresh();
+    } catch (reason) {
+      toast.error("Could not scan installed skills", errorMessage(reason));
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -195,7 +217,7 @@ export default function LibraryPage() {
       <PageHeader
         eyebrow="Manage"
         title="Library"
-        description="Skills currently installed into detected agents. Drift means the files on disk no longer match the recorded version."
+        description="Skills currently installed into detected agents, including skills that were already on disk before this app. Drift means the files on disk no longer match the recorded version."
         meta={
           <span>
             {formatNumber(bootstrap.stats.installed)} installed ·{" "}
@@ -203,11 +225,17 @@ export default function LibraryPage() {
           </span>
         }
         actions={
-          bootstrap.stats.installed > 0 ? (
-            <Button variant="primary" size="sm" onClick={() => navigate("explore")}>
-              Find skills
+          <>
+            <Button variant="secondary" size="sm" onClick={() => void scanInstalled()} loading={scanning}>
+              {!scanning ? <RefreshCw className="size-3.5" aria-hidden="true" /> : null}
+              Scan installed
             </Button>
-          ) : undefined
+            {bootstrap.stats.installed > 0 ? (
+              <Button variant="primary" size="sm" onClick={() => navigate("explore")}>
+                Find skills
+              </Button>
+            ) : null}
+          </>
         }
       />
 
@@ -316,7 +344,8 @@ export default function LibraryPage() {
         <div className="overflow-hidden rounded-[14px] border border-line bg-surface/45">
           {filtered.map((installation) => {
             const busyHere = busy?.id === installation.id;
-            const updateAvailable = hasUpdate(installation);
+            const updateAvailable =
+              installation.origin !== "imported" && hasUpdate(installation);
             return (
               <div
                 key={installation.id}
@@ -332,6 +361,7 @@ export default function LibraryPage() {
                     <Badge tone={statusTone(installation.status)} dot>
                       {humanizeStatus(installation.status)}
                     </Badge>
+                    {installation.origin === "imported" ? <Badge tone="neutral">Found on disk</Badge> : null}
                     {updateAvailable ? <Badge tone="brand">Update available</Badge> : null}
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
@@ -366,22 +396,26 @@ export default function LibraryPage() {
                       Update
                     </Button>
                   ) : null}
-                  <IconButton
-                    label={`Rollback ${installation.skillName}`}
-                    icon={<History className="size-3.5" aria-hidden="true" />}
-                    onClick={() => void loadBackups(installation)}
-                    disabled={Boolean(busy)}
-                  />
-                  <IconButton
-                    label={`Uninstall ${installation.skillName}`}
-                    icon={<Trash2 className="size-3.5" aria-hidden="true" />}
-                    variant="danger"
-                    onClick={() => {
-                      setRemoveFiles(false);
-                      setUninstallTarget(installation);
-                    }}
-                    disabled={Boolean(busy)}
-                  />
+                  {installation.origin !== "imported" ? (
+                    <>
+                      <IconButton
+                        label={`Rollback ${installation.skillName}`}
+                        icon={<History className="size-3.5" aria-hidden="true" />}
+                        onClick={() => void loadBackups(installation)}
+                        disabled={Boolean(busy)}
+                      />
+                      <IconButton
+                        label={`Uninstall ${installation.skillName}`}
+                        icon={<Trash2 className="size-3.5" aria-hidden="true" />}
+                        variant="danger"
+                        onClick={() => {
+                          setRemoveFiles(false);
+                          setUninstallTarget(installation);
+                        }}
+                        disabled={Boolean(busy)}
+                      />
+                    </>
+                  ) : null}
                 </div>
               </div>
             );

@@ -109,8 +109,13 @@ jobs:
               Windsurf/Devin Desktop and OpenCode.
             - Risk levels are clickable and explain the scanner scale and install consequences.
             - Undetected agents can be added manually with a validated user skills folder.
+            - Library imports existing skills already present in supported agent folders, including top-level
+              symlinked/junctioned folders, and marks them read-only as Found on disk.
+            - GitHub tree URLs, `develop` branch fallback and nested skill layouts (`.claude/skills`, `.agents/skills`,
+              `plugins/*/skills`) work without manual configuration.
+            - Duplicate agent-specific copies (e.g. RTK and Caveman) collapse to one catalog card per logical skill.
             - App/taskbar icon padding was normalized so the logo fills the Windows tile.
-            - Linux `.deb` install, source sync and installed-app launch are covered by E2E CI.
+            - Linux `.deb` install, source sync, manual agents and existing-skill import are covered by E2E CI.
 
             ### Notes
 

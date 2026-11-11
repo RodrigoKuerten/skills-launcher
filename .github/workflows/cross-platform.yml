@@ -112,6 +112,11 @@ jobs:
         env:
           SKILLS_LAUNCHER_MANUAL_AGENT_SMOKE: "1"
         run: cargo test manual_agent_detect_install_uninstall -- --ignored --nocapture
+      - name: Existing agent skills discovery on Linux
+        working-directory: apps/desktop/src-tauri
+        env:
+          SKILLS_LAUNCHER_INSTALLED_SCAN_SMOKE: "1"
+        run: cargo test imports_ -- --ignored --nocapture
       - name: Launch installed Linux package
         env:
           WEBKIT_DISABLE_COMPOSITING_MODE: "1"

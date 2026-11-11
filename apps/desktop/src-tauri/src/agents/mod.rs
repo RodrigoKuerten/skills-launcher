@@ -18,8 +18,8 @@ pub(crate) struct ManualAgentConfig {
 }
 
 pub use install::{
-    auto_update, install_skill, list_backups, rollback_installation, uninstall_skill,
-    update_installation,
+    auto_update, import_installed_skills, install_skill, list_backups, rollback_installation,
+    uninstall_skill, update_installation,
 };
 
 pub(crate) struct HostDescriptor {

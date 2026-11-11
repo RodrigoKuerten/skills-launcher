@@ -56,7 +56,7 @@ export const SOURCE_KINDS: Array<{
     value: "github_repo",
     label: "GitHub repository",
     description: "Scan a public repository for SKILL.md folders.",
-    configHint: "https://github.com/owner/repo",
+    configHint: "https://github.com/owner/repo (tree URLs accepted)",
   },
   {
     value: "github_org",

@@ -1,13 +1,15 @@
 use super::{configured_skills_root, descriptor, user_skills_root};
 use crate::db::Db;
 use crate::domain::{
-    Backup, DetectedAgent, InstallOutcome, InstallRequest, InstallResponse, SkillFile,
+    Backup, DetectedAgent, InstallOutcome, InstallRequest, InstallResponse, InstalledScanResult,
+    SkillFile, Source, SourceInput, SourceKind,
 };
 use crate::error::{AppError, AppResult};
 use crate::sources::{content_hash, safe_relative_path};
 use rusqlite::{params, OptionalExtension};
 use serde_json::json;
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -37,6 +39,7 @@ struct InstallationRow {
     skill_id: String,
     host: String,
     install_path: String,
+    origin: String,
 }
 
 pub fn install_skill(
@@ -111,6 +114,12 @@ pub fn update_installation(
     detected: &[DetectedAgent],
 ) -> AppResult<InstallResponse> {
     let installation = load_installation(db, id)?;
+    if installation.origin == "imported" {
+        return Err(AppError::Validation(
+            "Skills found on disk are not updated by Skills Launcher. Reinstall the skill to manage updates."
+                .into(),
+        ));
+    }
     let skill = load_skill(db, &installation.skill_id)?;
     let Some(agent) = detected
         .iter()
@@ -157,6 +166,12 @@ pub fn update_installation(
 
 pub fn uninstall_skill(db: &Db, data_dir: &Path, id: &str, remove_files: bool) -> AppResult<()> {
     let installation = load_installation(db, id)?;
+    if installation.origin == "imported" {
+        return Err(AppError::Validation(
+            "Skills found on disk are read-only in the Library. Remove them from the agent folder instead."
+                .into(),
+        ));
+    }
     let root = configured_skills_root(db, &installation.host)?;
     let target = PathBuf::from(&installation.install_path);
     let root = canonical_or_create(&root)?;
@@ -207,6 +222,340 @@ pub fn uninstall_skill(db: &Db, data_dir: &Path, id: &str, remove_files: bool) -
     Ok(())
 }
 
+pub async fn import_installed_skills(
+    db: &Db,
+    http: &reqwest::Client,
+    temp_dir: &Path,
+    detected: &[DetectedAgent],
+) -> AppResult<InstalledScanResult> {
+    let mut scanned = 0i64;
+    let mut imported = 0i64;
+    let mut errors = Vec::new();
+    for agent in detected.iter().filter(|agent| agent.supports_agent_skills) {
+        let Some(skills_path) = &agent.skills_path else {
+            continue;
+        };
+        let root = match crate::paths::canonical(Path::new(skills_path)) {
+            Ok(root) if root.is_dir() => root,
+            _ => continue,
+        };
+        let root_text = root.to_string_lossy().to_string();
+        let (linked_count, linked_errors) =
+            import_linked_skills(db, http, temp_dir, agent, &root).await?;
+        imported += linked_count;
+        errors.extend(linked_errors);
+        if linked_count > 0 {
+            scanned += 1;
+        }
+        let probe = Source {
+            id: "probe".into(),
+            name: agent.name.clone(),
+            kind: SourceKind::LocalDir,
+            url: root_text.clone(),
+            author: "Local machine".into(),
+            description: String::new(),
+            config: json!({}),
+            trust: "COMMUNITY".into(),
+            license: None,
+            enabled: true,
+            auto_sync: false,
+            interval_minutes: 360,
+            last_sync_at: None,
+            last_status: None,
+            last_error: None,
+            skill_count: 0,
+            created_at: now_iso(),
+            updated_at: now_iso(),
+        };
+        let found = match crate::sources::local::read_local_dir(&probe) {
+            Ok(result) => result.skills.len(),
+            Err(error) => {
+                errors.push(format!("{}: {error}", agent.name));
+                continue;
+            }
+        };
+        if found == 0 {
+            continue;
+        }
+        scanned += 1;
+        let source = match db.list_sources().map(|sources| {
+            sources.into_iter().find(|source| {
+                matches!(source.kind, SourceKind::LocalDir) && source.url == root_text
+            })
+        }) {
+            Ok(Some(source)) => source,
+            Ok(None) => match crate::catalog::create_source(
+                db,
+                SourceInput {
+                    name: format!("{} installed", agent.name),
+                    kind: SourceKind::LocalDir,
+                    url: root_text,
+                    author: "Local machine".into(),
+                    description: format!("Skills already present in {}", root.display()),
+                    config: json!({}),
+                    trust: "COMMUNITY".into(),
+                    enabled: true,
+                    auto_sync: false,
+                    interval_minutes: 360,
+                },
+            ) {
+                Ok(source) => source,
+                Err(error) => {
+                    errors.push(format!("{}: {error}", agent.name));
+                    continue;
+                }
+            },
+            Err(error) => {
+                errors.push(format!("{}: {error}", agent.name));
+                continue;
+            }
+        };
+        if let Err(error) =
+            crate::catalog::sync_source(db, http, None, temp_dir, &source.id, "installed").await
+        {
+            errors.push(format!("{}: {error}", agent.name));
+            continue;
+        }
+        let skills = db.with_conn(|conn| {
+            let mut statement = conn.prepare(
+                "SELECT s.id,s.source_path,s.latest_version_id,COALESCE(v.content_hash,'') FROM skills s LEFT JOIN skill_versions v ON v.id=s.latest_version_id WHERE s.source_id=?1 AND s.status IN ('ACTIVE','QUARANTINED')",
+            )?;
+            let rows = statement
+                .query_map(params![source.id], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                        row.get::<_, String>(3)?,
+                    ))
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        })?;
+        for (skill_id, source_path, version_id, content_hash) in skills {
+            let Some(version_id) = version_id else {
+                continue;
+            };
+            let target = if source_path == "." {
+                root.clone()
+            } else {
+                root.join(&source_path)
+            };
+            let Ok(target) = crate::paths::canonical(&target) else {
+                continue;
+            };
+            if !target.starts_with(&root) || !target.is_dir() {
+                continue;
+            }
+            let install_path = target.to_string_lossy().to_string();
+            let existing = db.with_conn(|conn| {
+                Ok(conn
+                    .query_row(
+                        "SELECT id,origin FROM installations WHERE host=?1 AND install_path=?2 AND status <> 'REMOVED' ORDER BY updated_at DESC LIMIT 1",
+                        params![agent.host, install_path],
+                        |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+                    )
+                    .optional()?)
+            })?;
+            match existing {
+                Some((_, origin)) if origin == "app" => {}
+                Some((id, _)) => {
+                    db.with_conn(|conn| {
+                        conn.execute(
+                            "UPDATE installations SET skill_id=?1,version_id=?2,content_hash=?3,status='INSTALLED',updated_at=?4 WHERE id=?5",
+                            params![skill_id, version_id, content_hash, now_iso(), id],
+                        )?;
+                        Ok(())
+                    })?;
+                }
+                None => {
+                    let id = uuid::Uuid::new_v4().to_string();
+                    let now = now_iso();
+                    db.with_conn(|conn| {
+                        conn.execute(
+                            "INSERT INTO installations(id,skill_id,version_id,host,install_path,content_hash,status,origin,installed_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,'INSTALLED','imported',?7,?7)",
+                            params![id, skill_id, version_id, agent.host, install_path, content_hash, now],
+                        )?;
+                        conn.execute(
+                            "UPDATE skills SET install_count=(SELECT COUNT(*) FROM installations WHERE skill_id=?1 AND status='INSTALLED') WHERE id=?1",
+                            params![skill_id],
+                        )?;
+                        Ok(())
+                    })?;
+                    imported += 1;
+                }
+            }
+        }
+    }
+    Ok(InstalledScanResult {
+        scanned,
+        imported,
+        errors,
+    })
+}
+
+fn ensure_installed_source(
+    db: &Db,
+    name: &str,
+    root: &Path,
+    description: &str,
+) -> AppResult<Source> {
+    let root_text = root.to_string_lossy().to_string();
+    if let Some(source) = db
+        .list_sources()?
+        .into_iter()
+        .find(|source| matches!(source.kind, SourceKind::LocalDir) && source.url == root_text)
+    {
+        return Ok(source);
+    }
+    crate::catalog::create_source(
+        db,
+        SourceInput {
+            name: name.to_string(),
+            kind: SourceKind::LocalDir,
+            url: root_text,
+            author: "Local machine".into(),
+            description: description.to_string(),
+            config: json!({}),
+            trust: "COMMUNITY".into(),
+            enabled: true,
+            auto_sync: false,
+            interval_minutes: 360,
+        },
+    )
+}
+
+async fn import_linked_skills(
+    db: &Db,
+    http: &reqwest::Client,
+    temp_dir: &Path,
+    agent: &DetectedAgent,
+    root: &Path,
+) -> AppResult<(i64, Vec<String>)> {
+    let home = home_canonical()?;
+    let mut groups: BTreeMap<PathBuf, Vec<(String, PathBuf)>> = BTreeMap::new();
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return Ok((0, Vec::new()));
+    };
+    for entry in entries.flatten() {
+        let link = entry.path();
+        let Ok(metadata) = std::fs::symlink_metadata(&link) else {
+            continue;
+        };
+        if !crate::paths::is_reparse(&metadata) {
+            continue;
+        }
+        let Ok(target) = crate::paths::canonical(&link) else {
+            continue;
+        };
+        if !target.is_dir() || !target.starts_with(&home) {
+            continue;
+        }
+        let Some(parent) = target.parent().map(Path::to_path_buf) else {
+            continue;
+        };
+        groups
+            .entry(parent)
+            .or_default()
+            .push((entry.file_name().to_string_lossy().to_string(), target));
+    }
+    let mut imported = 0i64;
+    let mut errors = Vec::new();
+    for (parent, links) in groups {
+        let source = match ensure_installed_source(
+            db,
+            &format!("{} installed", agent.name),
+            &parent,
+            &format!("Skills already present in {}", parent.display()),
+        ) {
+            Ok(source) => source,
+            Err(error) => {
+                errors.push(format!("{}: {error}", agent.name));
+                continue;
+            }
+        };
+        if let Err(error) =
+            crate::catalog::sync_source(db, http, None, temp_dir, &source.id, "installed").await
+        {
+            errors.push(format!("{}: {error}", agent.name));
+            continue;
+        }
+        let skills = db.with_conn(|conn| {
+            let mut statement = conn.prepare(
+                "SELECT s.id,s.source_path,s.latest_version_id,COALESCE(v.content_hash,'') FROM skills s LEFT JOIN skill_versions v ON v.id=s.latest_version_id WHERE s.source_id=?1 AND s.status IN ('ACTIVE','QUARANTINED')",
+            )?;
+            let rows = statement
+                .query_map(params![source.id], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                        row.get::<_, String>(3)?,
+                    ))
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        })?;
+        for (link_name, target) in links {
+            let relative = target
+                .strip_prefix(&parent)
+                .map(|path| path.to_string_lossy().replace('\\', "/"))
+                .unwrap_or_default();
+            let source_path = if relative.is_empty() {
+                ".".to_string()
+            } else {
+                relative
+            };
+            let Some((skill_id, _, Some(version_id), content_hash)) = skills
+                .iter()
+                .find(|(_, path, _, _)| path == &source_path)
+                .cloned()
+            else {
+                continue;
+            };
+            let install_path = root.join(&link_name).to_string_lossy().to_string();
+            let existing = db.with_conn(|conn| {
+                Ok(conn
+                    .query_row(
+                        "SELECT id,origin FROM installations WHERE host=?1 AND install_path=?2 AND status <> 'REMOVED' ORDER BY updated_at DESC LIMIT 1",
+                        params![agent.host, install_path],
+                        |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+                    )
+                    .optional()?)
+            })?;
+            match existing {
+                Some((_, origin)) if origin == "app" => {}
+                Some((id, _)) => {
+                    db.with_conn(|conn| {
+                        conn.execute(
+                            "UPDATE installations SET skill_id=?1,version_id=?2,content_hash=?3,status='INSTALLED',updated_at=?4 WHERE id=?5",
+                            params![skill_id, version_id, content_hash, now_iso(), id],
+                        )?;
+                        Ok(())
+                    })?;
+                }
+                None => {
+                    let id = uuid::Uuid::new_v4().to_string();
+                    let now = now_iso();
+                    db.with_conn(|conn| {
+                        conn.execute(
+                            "INSERT INTO installations(id,skill_id,version_id,host,install_path,content_hash,status,origin,installed_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,'INSTALLED','imported',?7,?7)",
+                            params![id, skill_id, version_id, agent.host, install_path, content_hash, now],
+                        )?;
+                        conn.execute(
+                            "UPDATE skills SET install_count=(SELECT COUNT(*) FROM installations WHERE skill_id=?1 AND status='INSTALLED') WHERE id=?1",
+                            params![skill_id],
+                        )?;
+                        Ok(())
+                    })?;
+                    imported += 1;
+                }
+            }
+        }
+    }
+    Ok((imported, errors))
+}
+
 pub fn rollback_installation(
     db: &Db,
     data_dir: &Path,
@@ -214,6 +563,12 @@ pub fn rollback_installation(
     backup_id: Option<&str>,
 ) -> AppResult<InstallResponse> {
     let installation = load_installation(db, id)?;
+    if installation.origin == "imported" {
+        return Err(AppError::Validation(
+            "Skills found on disk are read-only in the Library. Remove them from the agent folder instead."
+                .into(),
+        ));
+    }
     let backup = load_backup(db, backup_id, &installation)?;
     let root = canonical_or_create(&configured_skills_root(db, &installation.host)?)?;
     let target = PathBuf::from(&installation.install_path);
@@ -328,7 +683,7 @@ pub async fn auto_update(db: &Db, data_dir: &Path) -> AppResult<Vec<InstallOutco
     let detected = super::detect_all(db).await?;
     let rows = db.with_conn(|conn| {
         let mut statement = conn.prepare(
-            "SELECT i.id,i.skill_id,i.host,i.install_path FROM installations i WHERE i.status='INSTALLED'",
+            "SELECT i.id,i.skill_id,i.host,i.install_path,i.origin FROM installations i WHERE i.status='INSTALLED' AND i.origin='app'",
         )?;
         let rows = statement.query_map([], |row| {
             Ok(InstallationRow {
@@ -336,6 +691,7 @@ pub async fn auto_update(db: &Db, data_dir: &Path) -> AppResult<Vec<InstallOutco
                 skill_id: row.get(1)?,
                 host: row.get(2)?,
                 install_path: row.get(3)?,
+                origin: row.get(4)?,
             })
         })?;
         let mut installations = Vec::new();
@@ -832,7 +1188,7 @@ fn staging_path(root: &Path, install_path: &str) -> PathBuf {
 fn load_installation(db: &Db, id: &str) -> AppResult<InstallationRow> {
     db.with_conn(|conn| {
         conn.query_row(
-            "SELECT id,skill_id,host,install_path FROM installations WHERE id=?1",
+            "SELECT id,skill_id,host,install_path,origin FROM installations WHERE id=?1",
             params![id],
             |row| {
                 Ok(InstallationRow {
@@ -840,6 +1196,7 @@ fn load_installation(db: &Db, id: &str) -> AppResult<InstallationRow> {
                     skill_id: row.get(1)?,
                     host: row.get(2)?,
                     install_path: row.get(3)?,
+                    origin: row.get(4)?,
                 })
             },
         )
@@ -1352,6 +1709,113 @@ mod tests {
         }
 
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[tokio::test]
+    #[ignore = "mutates a temporary folder inside the real home; CI sets SKILLS_LAUNCHER_INSTALLED_SCAN_SMOKE=1"]
+    async fn imports_existing_agent_skills() {
+        if std::env::var("SKILLS_LAUNCHER_INSTALLED_SCAN_SMOKE").as_deref() != Ok("1") {
+            eprintln!("skipping: SKILLS_LAUNCHER_INSTALLED_SCAN_SMOKE is not set");
+            return;
+        }
+        let home = dirs::home_dir().unwrap();
+        let manual_root = home.join(format!(
+            ".skills-launcher-installed-smoke-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let skills_root = manual_root.join("claude-skills");
+        let existing = skills_root.join("existing-demo");
+        std::fs::create_dir_all(&existing).unwrap();
+        std::fs::write(
+            existing.join("SKILL.md"),
+            "---\nname: Existing Demo\ndescription: Already installed before using the app.\n---\n\nKeep me.\n",
+        )
+        .unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "skills-launcher-installed-scan-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let data = root.join("data");
+        let db = Db::open(&data).unwrap();
+        let skills_path = skills_root.to_string_lossy().to_string();
+        crate::agents::set_manual_agent(&db, "claude-code", None, Some(&skills_path)).unwrap();
+        let detected = crate::agents::detect_all(&db).await.unwrap();
+        let scan =
+            import_installed_skills(&db, &reqwest::Client::new(), &data.join("tmp"), &detected)
+                .await
+                .unwrap();
+        assert!(scan.imported >= 1, "existing skill was not imported");
+        let installations = crate::catalog::list_installations(&db).unwrap();
+        let installation = installations
+            .iter()
+            .find(|item| item.skill_name == "Existing Demo")
+            .expect("imported installation missing");
+        assert_eq!(installation.origin, "imported");
+        assert_eq!(
+            std::fs::canonicalize(&installation.install_path).unwrap(),
+            std::fs::canonicalize(&existing).unwrap()
+        );
+        let again =
+            import_installed_skills(&db, &reqwest::Client::new(), &data.join("tmp"), &detected)
+                .await
+                .unwrap();
+        assert_eq!(again.imported, 0, "scan should be idempotent");
+
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(manual_root);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    #[ignore = "mutates a temporary folder inside the real home; CI sets SKILLS_LAUNCHER_INSTALLED_SCAN_SMOKE=1"]
+    async fn imports_symlinked_agent_skills() {
+        if std::env::var("SKILLS_LAUNCHER_INSTALLED_SCAN_SMOKE").as_deref() != Ok("1") {
+            eprintln!("skipping: SKILLS_LAUNCHER_INSTALLED_SCAN_SMOKE is not set");
+            return;
+        }
+        let home = dirs::home_dir().unwrap();
+        let manual_root = home.join(format!(
+            ".skills-launcher-linked-smoke-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let physical_root = manual_root.join("physical-skills");
+        let physical_skill = physical_root.join("linked-demo");
+        let agent_root = manual_root.join("claude-skills");
+        std::fs::create_dir_all(&physical_skill).unwrap();
+        std::fs::create_dir_all(&agent_root).unwrap();
+        std::fs::write(
+            physical_skill.join("SKILL.md"),
+            "---\nname: Linked Demo\ndescription: Existing skill linked into an agent.\n---\n\nKeep me.\n",
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(&physical_skill, agent_root.join("linked-demo")).unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "skills-launcher-linked-scan-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let data = root.join("data");
+        let db = Db::open(&data).unwrap();
+        let skills_path = agent_root.to_string_lossy().to_string();
+        crate::agents::set_manual_agent(&db, "claude-code", None, Some(&skills_path)).unwrap();
+        let detected = crate::agents::detect_all(&db).await.unwrap();
+        let scan =
+            import_installed_skills(&db, &reqwest::Client::new(), &data.join("tmp"), &detected)
+                .await
+                .unwrap();
+        assert!(scan.imported >= 1, "symlinked skill was not imported");
+        let installations = crate::catalog::list_installations(&db).unwrap();
+        let installation = installations
+            .iter()
+            .find(|item| item.skill_name == "Linked Demo")
+            .expect("symlinked import missing");
+        assert_eq!(installation.origin, "imported");
+        assert_eq!(
+            std::fs::canonicalize(&installation.install_path).unwrap(),
+            std::fs::canonicalize(&physical_skill).unwrap()
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(manual_root);
     }
 
     #[tokio::test]

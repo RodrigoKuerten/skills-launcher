@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS installations (
   install_path TEXT NOT NULL,
   content_hash TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'INSTALLED',
+  origin TEXT NOT NULL DEFAULT 'app',
   installed_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   UNIQUE(host, skill_id, install_path)
@@ -278,6 +279,12 @@ impl Db {
         if !column_exists(&conn, "backups", "reason")? {
             conn.execute(
                 "ALTER TABLE backups ADD COLUMN reason TEXT NOT NULL DEFAULT 'manual'",
+                [],
+            )?;
+        }
+        if !column_exists(&conn, "installations", "origin")? {
+            conn.execute(
+                "ALTER TABLE installations ADD COLUMN origin TEXT NOT NULL DEFAULT 'app'",
                 [],
             )?;
         }

@@ -243,6 +243,14 @@ pub struct DetectedAgent {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct InstalledScanResult {
+    pub scanned: i64,
+    pub imported: i64,
+    pub errors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Installation {
     pub id: String,
     pub skill_id: String,
@@ -254,6 +262,7 @@ pub struct Installation {
     pub install_path: String,
     pub content_hash: String,
     pub status: String,
+    pub origin: String,
     pub installed_at: String,
     pub updated_at: String,
     pub latest_version_id: Option<String>,

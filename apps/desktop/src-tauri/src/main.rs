@@ -31,12 +31,31 @@ fn main() {
                 .app_data_dir()
                 .map_err(|error| error.to_string())?;
             let db = Db::open(&data_dir).map_err(|error| error.to_string())?;
+            let _ = catalog::archive_duplicate_skills(&db);
             agents::recover_stale_swaps();
             let state = AppState::new(db, &data_dir).map_err(|error| error.to_string())?;
             app.manage(state);
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 tokio::time::sleep(Duration::from_secs(8)).await;
+                {
+                    let state = handle.state::<AppState>();
+                    if let Ok(detected) = agents::detect_all(&state.db).await {
+                        let _guard = state.install_lock.lock().await;
+                        if let Ok(scan) = agents::import_installed_skills(
+                            &state.db,
+                            &state.http,
+                            &state.temp_dir,
+                            &detected,
+                        )
+                        .await
+                        {
+                            if scan.imported > 0 {
+                                let _ = handle.emit("catalog-updated", &scan);
+                            }
+                        }
+                    }
+                }
                 loop {
                     let state = handle.state::<AppState>();
                     let enabled = state
@@ -101,6 +120,7 @@ fn main() {
             commands::import_sources,
             commands::pick_source_path,
             commands::detect_agents,
+            commands::scan_installed_skills,
             commands::set_agent_auto_install,
             commands::set_manual_agent,
             commands::clear_manual_agent,

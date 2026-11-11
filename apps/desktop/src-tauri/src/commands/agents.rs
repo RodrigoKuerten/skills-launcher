@@ -1,7 +1,8 @@
 use crate::agents;
 use crate::catalog;
 use crate::domain::{
-    Backup, DetectedAgent, InstallRequest, InstallResponse, Installation, Operation, UpdateItem,
+    Backup, DetectedAgent, InstallRequest, InstallResponse, Installation, InstalledScanResult,
+    Operation, UpdateItem,
 };
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
@@ -10,6 +11,21 @@ use tauri::{AppHandle, Emitter, State};
 #[tauri::command]
 pub async fn detect_agents(state: State<'_, AppState>) -> AppResult<Vec<DetectedAgent>> {
     agents::detect_all(&state.db).await
+}
+
+#[tauri::command]
+pub async fn scan_installed_skills(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> AppResult<InstalledScanResult> {
+    let detected = agents::detect_all(&state.db).await?;
+    let _guard = state.install_lock.lock().await;
+    let result =
+        agents::import_installed_skills(&state.db, &state.http, &state.temp_dir, &detected).await?;
+    if result.imported > 0 {
+        let _ = app.emit("library-updated", &result);
+    }
+    Ok(result)
 }
 
 #[tauri::command]

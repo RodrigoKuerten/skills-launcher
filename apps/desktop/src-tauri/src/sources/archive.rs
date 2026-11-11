@@ -127,6 +127,43 @@ mod tests {
         .unwrap_err();
         assert!(error.to_string().contains("Unsafe path"));
     }
+
+    #[test]
+    fn accepts_highly_compressible_skill_files() {
+        let mut bytes = Vec::new();
+        {
+            let mut writer = zip::ZipWriter::new(Cursor::new(&mut bytes));
+            let options =
+                SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+            writer.start_file("demo/SKILL.md", options).unwrap();
+            writer
+                .write_all(
+                    b"---\nname: Repetitive\ndescription: Legitimate compressed text.\n---\n\nBody.\n",
+                )
+                .unwrap();
+            writer.start_file("demo/notes.txt", options).unwrap();
+            writer.write_all(&vec![b'a'; 200_000]).unwrap();
+            writer.finish().unwrap();
+        }
+        let skills = skills_from_zip(
+            &bytes,
+            ZipMeta {
+                author: "test".into(),
+                source_url: "https://example.com".into(),
+                license: None,
+                stars: 0,
+                branch: None,
+                commit_ref: None,
+                subpath: None,
+            },
+        )
+        .unwrap();
+        assert_eq!(skills.len(), 1);
+        assert!(skills[0]
+            .files
+            .iter()
+            .any(|file| file.path == "notes.txt" && file.content.len() == 200_000));
+    }
 }
 
 pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredSkill>> {
@@ -174,14 +211,6 @@ pub fn skills_from_zip(bytes: &[u8], meta: ZipMeta) -> AppResult<Vec<DiscoveredS
             return Err(AppError::Validation(
                 "ZIP expands beyond the 64 MB limit".into(),
             ));
-        }
-        if entry.size() > 0 && entry.compressed_size() > 0 {
-            let ratio = entry.size() / entry.compressed_size().max(1);
-            if ratio > 100 {
-                return Err(AppError::Validation(
-                    "ZIP compression ratio is suspiciously high".into(),
-                ));
-            }
         }
         entries.push(ZipEntryInfo { index, name });
     }

@@ -8,6 +8,7 @@ import type {
   DetectedAgent,
   InstallRequest,
   InstallResponse,
+  InstalledScanResult,
   Installation,
   Operation,
   Settings,
@@ -60,6 +61,7 @@ export const ipc = {
     call<string | null>("pick_source_path", { kind }),
 
   detectAgents: () => call<DetectedAgent[]>("detect_agents"),
+  scanInstalledSkills: () => call<InstalledScanResult>("scan_installed_skills"),
   setAgentAutoInstall: (host: string, enabled: boolean) =>
     call<DetectedAgent[]>("set_agent_auto_install", { host, enabled }),
   setManualAgent: (host: string, executablePath?: string | null, skillsPath?: string | null) =>

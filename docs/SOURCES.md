@@ -6,7 +6,7 @@ Sources are untrusted catalogs. Adapters fetch bytes only; validation, scanning,
 
 | Kind | Config / URL | Notes |
 |---|---|---|
-| `github_repo` | `url=https://github.com/owner/repo`, config `{repo, branch?, path?}` | Downloads the public codeload ZIP. API metadata is optional; sync works when the unauthenticated API is rate limited. Branch defaults from GitHub metadata, then `main`/`master`. |
+| `github_repo` | `url=https://github.com/owner/repo`, config `{repo, branch?, path?}` | Downloads the public codeload ZIP. API metadata is optional; sync works when the unauthenticated API is rate limited. Branch defaults from GitHub metadata, then tries `main`, `master` and `develop`. The Add Source form also accepts `/tree/branch/path` URLs and fills `branch`/`path`. |
 | `github_org` | `url=https://github.com/org`, config `{limit?, branch?, path?}` | Lists public repos through the GitHub API (token recommended), scans up to 25. |
 | `local_dir` | `url` = picked absolute directory | Read-only, no symlinks, ignores `.git`, `node_modules`, `target`, `dist`, `.next`, `vendor`. |
 | `zip` | `url` = picked absolute `.zip` | Parsed in memory; no extraction to host directories. Rejects traversal, encryption and archive bombs; symlink entries are skipped. |
@@ -71,6 +71,17 @@ These are real, high-signal sources that failed a hard requirement (license or a
 A partial-archive/sparse-source adapter would be required to include the oversized catalogs without downloading the
 entire repository.
 
+## Skill layouts and duplicates
+
+Discovery is recursive under the source URL, so repositories that keep skills under `.claude/skills`,
+`.agents/skills`, `.cursor/skills`, `plugins/*/skills`, `packages/*/skills` or similar are accepted. The source form's
+optional **Path** narrows the scan when a repository has several unrelated trees.
+
+Within one source, skills with the same normalized name are collapsed to one catalog entry, keeping the cleanest path
+(no hidden/test/generated component). Agent-specific copies (for example RTK `.claude/skills` and a Caveman plugin
+copy) therefore produce one Library card, not dozens. Paths under `tests/`, `testdata/`, `fixtures/` and test oracle
+workspaces are ignored. Removed skills are archived on a successful sync; installation provenance is retained.
+
 ## GitHub behavior
 
 - Public repositories use `https://codeload.github.com/...` directly. This keeps sync usable when the GitHub API allows only 60 requests/hour.
@@ -106,7 +117,10 @@ The top level may also be an array of skill objects. `SKILL.md` is required in e
 
 ## Sync result
 
-Each sync writes a `source_runs` row and updates source status. Skills are deduplicated by `(source_id, source_path)`; versions by `(skill_id, content_hash)`. A changed hash creates a new immutable version and moves `latest_version_id`. A removed skill is not deleted automatically - installed provenance remains.
+Each sync writes a `source_runs` row and updates source status. Skills are deduplicated by normalized name within a
+source (and by `(source_id, source_path)` for upserts); versions by `(skill_id, content_hash)`. A changed hash creates a
+new immutable version and moves `latest_version_id`. Successful syncs archive skills that disappeared; installation
+provenance remains.
 
 ## Scanner
 

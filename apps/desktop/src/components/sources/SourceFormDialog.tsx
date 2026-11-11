@@ -32,6 +32,35 @@ function configNumber(source: Source | null, key: string): string {
   return typeof value === "number" || typeof value === "string" ? String(value) : "";
 }
 
+interface GithubLocation {
+  url: string;
+  repo: string;
+  branch: string;
+  path: string;
+}
+
+function parseGithubLocation(value: string): GithubLocation | null {
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "https:" || url.hostname !== "github.com") return null;
+    const segments = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    if (segments.length < 2) return null;
+    const repo = `${segments[0]}/${segments[1]}`;
+    if (segments.length === 2) {
+      return { url: `https://github.com/${repo}`, repo, branch: "", path: "" };
+    }
+    if (segments[2] !== "tree" || segments.length < 4) return null;
+    return {
+      url: `https://github.com/${repo}`,
+      repo,
+      branch: segments[3] ?? "",
+      path: segments.slice(4).join("/"),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function validateRemoteUrl(kind: SourceKind, value: string): string | null {
   if (!value.trim()) return "A URL is required.";
   if (kind === "github_repo" || kind === "github_org") {
@@ -41,8 +70,8 @@ function validateRemoteUrl(kind: SourceKind, value: string): string | null {
         return "Use an https://github.com/ URL.";
       }
       const segments = url.pathname.split("/").filter(Boolean);
-      if (kind === "github_repo" && segments.length !== 2) {
-        return "Use https://github.com/owner/repo.";
+      if (kind === "github_repo" && !parseGithubLocation(value)) {
+        return "Use https://github.com/owner/repo or a /tree/branch/path URL.";
       }
       if (kind === "github_org" && segments.length !== 1) {
         return "Use https://github.com/owner.";
@@ -123,20 +152,24 @@ export function SourceFormDialog({
     }
   };
 
-  const buildConfig = (): Record<string, unknown> => {
+  const buildConfig = (
+    repoValue = repo,
+    branchValue = branch,
+    pathValue = path,
+  ): Record<string, unknown> => {
     const config: Record<string, unknown> = {};
     if (kind === "github_repo") {
-      if (repo.trim()) config.repo = repo.trim();
-      if (branch.trim()) config.branch = branch.trim();
-      if (path.trim()) config.path = path.trim();
+      if (repoValue.trim()) config.repo = repoValue.trim();
+      if (branchValue.trim()) config.branch = branchValue.trim();
+      if (pathValue.trim()) config.path = pathValue.trim();
     } else if (kind === "github_org") {
       const limit = parsePositiveInt(orgLimit, 10);
       config.limit = Math.min(25, Math.max(1, limit));
-      if (branch.trim()) config.branch = branch.trim();
-      if (path.trim()) config.path = path.trim();
+      if (branchValue.trim()) config.branch = branchValue.trim();
+      if (pathValue.trim()) config.path = pathValue.trim();
     } else if (kind === "git_repo") {
-      if (branch.trim()) config.branch = branch.trim();
-      if (path.trim()) config.path = path.trim();
+      if (branchValue.trim()) config.branch = branchValue.trim();
+      if (pathValue.trim()) config.path = pathValue.trim();
     }
     return config;
   };
@@ -151,6 +184,9 @@ export function SourceFormDialog({
       nextErrors.interval = "Use 30 to 10080 minutes.";
     }
     let url = remoteUrl.trim();
+    let repoValue = repo.trim();
+    let branchValue = branch.trim();
+    let pathValue = path.trim();
     if (picker) {
       if (!pickedPath) {
         nextErrors.url = sourceWasPicker
@@ -163,6 +199,15 @@ export function SourceFormDialog({
       const urlError = validateRemoteUrl(kind, remoteUrl);
       if (urlError) nextErrors.url = urlError;
     }
+    if (kind === "github_repo") {
+      const location = parseGithubLocation(remoteUrl);
+      if (location) {
+        url = location.url;
+        if (!repoValue) repoValue = location.repo;
+        if (!branchValue) branchValue = location.branch;
+        if (!pathValue) pathValue = location.path;
+      }
+    }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -172,7 +217,7 @@ export function SourceFormDialog({
       url,
       author: author.trim(),
       description: description.trim(),
-      config: buildConfig(),
+      config: buildConfig(repoValue, branchValue, pathValue),
       trust,
       enabled,
       autoSync,

@@ -165,6 +165,12 @@ export interface DetectedAgent {
   notes: string[];
 }
 
+export interface InstalledScanResult {
+  scanned: number;
+  imported: number;
+  errors: string[];
+}
+
 export interface Installation {
   id: string;
   skillId: string;
@@ -176,6 +182,7 @@ export interface Installation {
   installPath: string;
   contentHash: string;
   status: string;
+  origin: string;
   installedAt: string;
   updatedAt: string;
   latestVersionId: string | null;

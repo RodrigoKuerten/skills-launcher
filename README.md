@@ -55,6 +55,9 @@ normal shell can build.
 - **Agents**: evidence-based detection for Claude Code, OpenAI Codex, OpenCode, Cursor, GitHub Copilot, Gemini CLI and
   Windsurf / Devin Desktop. A config folder alone is never treated as an installation; supported agents in
   non-standard locations can be added manually with a user-selected skills folder.
+- **Existing skills**: skills already present in the documented agent folders are imported into Library as
+  **Found on disk**, including top-level symlinked/junctioned skill folders. They remain read-only until you manage
+  them outside the app.
 - **Install lifecycle**: one-click install to one or many detected agents, update, uninstall, backup, rollback and an
   operation log. Existing untracked user files survive updates; old managed files are removed.
 - **Security**: imported content is untrusted data. Paths are validated, symlinks/reparse points and ZIP traversal are

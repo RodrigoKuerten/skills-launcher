@@ -23,7 +23,8 @@ Commit: `59e1ebcb5714720b3a5387a1df6cc5484310257d`
 
 All four test jobs run `npm ci`, the desktop TypeScript check, the Vite production build and `cargo test`.
 
-- Rust: 9 passing, 6 ignored. The ignored tests are network/machine diagnostics or require explicitly installed agents/a manual-agent smoke flag.
+- Rust: 11 passing, 7 ignored on Windows (8 on Linux, including the symlink import test). Ignored tests are network or
+  machine diagnostics that require explicitly installed agents or an opt-in smoke flag.
 - `cargo clippy --all-targets -- -D warnings` is clean locally; it is not a separate CI step yet.
 
 ## Real agent jobs
@@ -93,7 +94,9 @@ sources.
 3. runs `seeded_sources_sync_smoke` against all 23 seeded sources;
 4. runs `manual_agent_detect_install_uninstall`: adds a manual Claude Code entry with a temporary skills folder
    under the runner home, installs a local fixture, uninstalls it, and removes the manual entry;
-5. launches the **installed** `/usr/bin/skills-launcher` binary under Xvfb/DBus and verifies a rendered window.
+5. runs `imports_`: imports a real folder and a symlinked skill that existed before the app, verifies
+   `origin=imported`, and verifies the scan is idempotent;
+6. launches the **installed** `/usr/bin/skills-launcher` binary under Xvfb/DBus and verifies a rendered window.
 
 The 23-source sync completed with the expected catalog, the manual-agent lifecycle passed, and the installed package
 window rendered successfully. Screenshot: [Linux installed package](audit/linux-e2e-installed.png).
@@ -102,6 +105,8 @@ window rendered successfully. Screenshot: [Linux installed package](audit/linux-
 
 - The Tauri release build starts and renders the real React UI on Ubuntu 24.04, Ubuntu 26.04 and macOS.
 - The Linux `.deb` installs and the installed binary launches under Xvfb; all 23 seeded sources sync on Linux.
+- Existing skills already on disk are imported on startup and via Library → Scan installed, including top-level
+  symlinked/junctioned skill folders. Imported entries are read-only in Library.
 - The shared Rust tests and frontend build pass on Windows, Ubuntu 24.04, Ubuntu 26.04 and macOS.
 - All seven supported agent hosts are detected from real runtimes and their documented user install roots are exercised
   end to end on Ubuntu 24.04, Ubuntu 26.04 and macOS.
@@ -115,6 +120,7 @@ window rendered successfully. Screenshot: [Linux installed package](audit/linux-
 - Linux runs in Xvfb, not a physical desktop/compositor. macOS runs in a GitHub-hosted VM, not physical hardware.
 - The Linux `.deb` is installed and launched in CI; the AppImage and macOS `.dmg` are built and published but not
   installed interactively.
-- The manual-agent dialog was clicked through on Windows WebView2. Linux covers the same Tauri commands, install
-  lifecycle and rendered UI, but does not yet automate clicks inside the WebKitGTK dialog.
+- The manual-agent dialog and Library existing-skills view were clicked through on Windows WebView2. Linux covers the
+  same Tauri commands, install lifecycle, import lifecycle and rendered UI, but does not yet automate clicks inside the
+  WebKitGTK dialog.
 - Screenshot/window checks are limited to the Home route on a clean database.

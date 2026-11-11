@@ -6,6 +6,7 @@ use crate::sources::{self, content_hash, slugify};
 use rusqlite::types::Value as SqlValue;
 use rusqlite::{params, params_from_iter, Connection, OptionalExtension, Transaction};
 use sha2::Digest;
+use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 
 const HOSTS: &[&str] = &[
@@ -66,13 +67,23 @@ pub async fn sync_source(
         }
     };
 
+    let source_license = result.source_license;
+    let skills: Vec<DiscoveredSkill> = dedupe_discovered(result.skills)
+        .into_iter()
+        .filter(|skill| !is_test_fixture_path(&skill.source_path))
+        .collect();
+    let found = skills.len() as i64;
+    let seen_paths: HashSet<String> = skills
+        .iter()
+        .map(|skill| skill.source_path.clone())
+        .collect();
     let now = now_iso();
     let mut created = 0i64;
     let mut updated = 0i64;
     let mut unchanged = 0i64;
     let mut blocked = 0i64;
     let persistence = db.with_tx(|tx| {
-        for skill in &result.skills {
+        for skill in &skills {
             match upsert_skill(tx, &source, skill, &now)? {
                 SkillOutcome::Created => created += 1,
                 SkillOutcome::Updated => updated += 1,
@@ -87,7 +98,26 @@ pub async fn sync_source(
                 }
             }
         }
-        if let Some(license) = &result.source_license {
+        if !seen_paths.is_empty() {
+            let stale: Vec<(String, String)> = {
+                let mut statement = tx.prepare(
+                    "SELECT id,source_path FROM skills WHERE source_id=?1 AND status IN ('ACTIVE','QUARANTINED')",
+                )?;
+                let rows = statement
+                    .query_map(params![source.id], |row| Ok((row.get(0)?, row.get(1)?)))?
+                    .collect::<Result<Vec<_>, _>>()?;
+                rows
+            };
+            for (id, path) in stale {
+                if !seen_paths.contains(&path) {
+                    tx.execute(
+                        "UPDATE skills SET status='ARCHIVED',archived=1,updated_at=?1 WHERE id=?2",
+                        params![now, id],
+                    )?;
+                }
+            }
+        }
+        if let Some(license) = &source_license {
             tx.execute(
                 "UPDATE sources SET license=?1 WHERE id=?2",
                 params![license, source.id],
@@ -110,7 +140,6 @@ pub async fn sync_source(
         return Err(error);
     }
 
-    let found = result.skills.len() as i64;
     db.with_conn(|conn| {
         conn.execute(
             "UPDATE source_runs SET status='ok',found=?1,created=?2,updated=?3,unchanged=?4,blocked=?5,finished_at=?6 WHERE id=?7",
@@ -308,6 +337,125 @@ fn upsert_skill(
     } else {
         Ok(SkillOutcome::Unchanged)
     }
+}
+
+fn is_test_fixture_path(path: &str) -> bool {
+    let components: Vec<&str> = path.split('/').filter(|part| !part.is_empty()).collect();
+    if components
+        .iter()
+        .any(|part| matches!(*part, "testdata" | "fixtures" | "__fixtures__"))
+    {
+        return true;
+    }
+    components.first() == Some(&"tests")
+        && components
+            .iter()
+            .any(|part| matches!(*part, "oracle" | "workspaces"))
+}
+
+fn canonical_path_rank(path: &str) -> (u8, usize, usize) {
+    let components: Vec<&str> = path.split('/').filter(|part| !part.is_empty()).collect();
+    let noisy = components.iter().any(|part| {
+        part.starts_with('.')
+            || matches!(
+                *part,
+                "tests" | "test" | "fixtures" | "testdata" | "generated" | "dist"
+            )
+    });
+    (u8::from(noisy), components.len(), path.len())
+}
+
+fn path_precedes(candidate: &str, current: &str) -> bool {
+    let candidate_rank = canonical_path_rank(candidate);
+    let current_rank = canonical_path_rank(current);
+    candidate_rank < current_rank || (candidate_rank == current_rank && candidate < current)
+}
+
+fn dedupe_discovered(skills: Vec<DiscoveredSkill>) -> Vec<DiscoveredSkill> {
+    let mut unique: BTreeMap<String, DiscoveredSkill> = BTreeMap::new();
+    for skill in skills {
+        let key = if skill.name.trim().is_empty() {
+            skill.source_path.to_lowercase()
+        } else {
+            skill.name.trim().to_lowercase()
+        };
+        match unique.get(&key) {
+            Some(existing) if !path_precedes(&skill.source_path, &existing.source_path) => {}
+            _ => {
+                unique.insert(key, skill);
+            }
+        }
+    }
+    unique.into_values().collect()
+}
+
+/// Archives duplicate logical skills inside each source, keeping the cleanest path.
+pub fn archive_duplicate_skills(db: &Db) -> AppResult<()> {
+    let rows: Vec<(String, String, String, String)> = db.with_conn(|conn| {
+        let mut statement = conn.prepare(
+            "SELECT id,source_id,name,source_path FROM skills WHERE status IN ('ACTIVE','QUARANTINED')",
+        )?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    })?;
+    let mut groups: BTreeMap<(String, String), Vec<(String, String)>> = BTreeMap::new();
+    let mut duplicated = Vec::new();
+    for (id, source_id, name, source_path) in rows {
+        if is_test_fixture_path(&source_path) {
+            duplicated.push((source_id, id));
+            continue;
+        }
+        let key = if name.trim().is_empty() {
+            source_path.to_lowercase()
+        } else {
+            name.trim().to_lowercase()
+        };
+        groups
+            .entry((source_id, key))
+            .or_default()
+            .push((id, source_path));
+    }
+    for ((source_id, _), mut skills) in groups {
+        if skills.len() < 2 {
+            continue;
+        }
+        skills.sort_by(|a, b| {
+            if path_precedes(&a.1, &b.1) {
+                std::cmp::Ordering::Less
+            } else if path_precedes(&b.1, &a.1) {
+                std::cmp::Ordering::Greater
+            } else {
+                a.0.cmp(&b.0)
+            }
+        });
+        for (id, _) in skills.into_iter().skip(1) {
+            duplicated.push((source_id.clone(), id));
+        }
+    }
+    if duplicated.is_empty() {
+        return Ok(());
+    }
+    db.with_tx(|tx| {
+        let mut affected = HashSet::new();
+        for (source_id, id) in &duplicated {
+            tx.execute(
+                "UPDATE skills SET status='ARCHIVED',archived=1,updated_at=?1 WHERE id=?2",
+                params![now_iso(), id],
+            )?;
+            affected.insert(source_id.clone());
+        }
+        for source_id in affected {
+            tx.execute(
+                "UPDATE sources SET skill_count=(SELECT COUNT(*) FROM skills WHERE source_id=?1 AND status IN ('ACTIVE','QUARANTINED')) WHERE id=?1",
+                params![source_id],
+            )?;
+        }
+        Ok(())
+    })
 }
 
 fn unique_slug(tx: &Transaction<'_>, name: &str, source_path: &str) -> AppResult<String> {
@@ -578,7 +726,7 @@ pub fn get_skill(db: &Db, id: &str) -> AppResult<SkillDetail> {
 pub fn list_installations(db: &Db) -> AppResult<Vec<Installation>> {
     db.with_conn(|conn| {
         let mut statement = conn.prepare(
-            "SELECT i.id,i.skill_id,s.name,s.slug,i.version_id,v.version_label,i.host,i.install_path,i.content_hash,i.status,i.installed_at,i.updated_at,s.latest_version_id,lv.version_label FROM installations i JOIN skills s ON s.id=i.skill_id LEFT JOIN skill_versions v ON v.id=i.version_id LEFT JOIN skill_versions lv ON lv.id=s.latest_version_id ORDER BY i.updated_at DESC",
+            "SELECT i.id,i.skill_id,s.name,s.slug,i.version_id,v.version_label,i.host,i.install_path,i.content_hash,i.status,i.installed_at,i.updated_at,s.latest_version_id,lv.version_label,i.origin FROM installations i JOIN skills s ON s.id=i.skill_id LEFT JOIN skill_versions v ON v.id=i.version_id LEFT JOIN skill_versions lv ON lv.id=s.latest_version_id ORDER BY i.updated_at DESC",
         )?;
         let rows = statement.query_map([], map_installation)?;
         let mut installations = Vec::new();
@@ -591,7 +739,7 @@ pub fn list_installations(db: &Db) -> AppResult<Vec<Installation>> {
 
 fn load_installations_for_skill(conn: &Connection, skill_id: &str) -> AppResult<Vec<Installation>> {
     let mut statement = conn.prepare(
-        "SELECT i.id,i.skill_id,s.name,s.slug,i.version_id,v.version_label,i.host,i.install_path,i.content_hash,i.status,i.installed_at,i.updated_at,s.latest_version_id,lv.version_label FROM installations i JOIN skills s ON s.id=i.skill_id LEFT JOIN skill_versions v ON v.id=i.version_id LEFT JOIN skill_versions lv ON lv.id=s.latest_version_id WHERE i.skill_id=?1 ORDER BY i.updated_at DESC",
+        "SELECT i.id,i.skill_id,s.name,s.slug,i.version_id,v.version_label,i.host,i.install_path,i.content_hash,i.status,i.installed_at,i.updated_at,s.latest_version_id,lv.version_label,i.origin FROM installations i JOIN skills s ON s.id=i.skill_id LEFT JOIN skill_versions v ON v.id=i.version_id LEFT JOIN skill_versions lv ON lv.id=s.latest_version_id WHERE i.skill_id=?1 ORDER BY i.updated_at DESC",
     )?;
     let rows = statement.query_map(params![skill_id], map_installation)?;
     let mut installations = Vec::new();
@@ -617,6 +765,7 @@ fn map_installation(row: &rusqlite::Row<'_>) -> rusqlite::Result<Installation> {
         updated_at: row.get(11)?,
         latest_version_id: row.get(12)?,
         latest_version_label: row.get(13)?,
+        origin: row.get(14)?,
     })
 }
 
@@ -751,6 +900,49 @@ mod tests {
         assert_eq!(detail.versions.len(), 1);
         assert_eq!(detail.versions[0].files_count, 2);
 
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[tokio::test]
+    async fn local_source_dedupes_agent_copies() {
+        let root =
+            std::env::temp_dir().join(format!("skills-launcher-dedupe-{}", uuid::Uuid::new_v4()));
+        let skill_doc = "---\nname: Shared Skill\ndescription: Same skill in agent folders.\n---\n\nUse one card.\n";
+        for dir in [
+            "skills/shared",
+            ".claude/skills/shared",
+            ".cursor/skills/shared",
+        ] {
+            let path = root.join(dir);
+            std::fs::create_dir_all(&path).unwrap();
+            std::fs::write(path.join("SKILL.md"), skill_doc).unwrap();
+        }
+        let fixture = root.join("tests/oracle/workspaces/demo/.claude/skills/fixture");
+        std::fs::create_dir_all(&fixture).unwrap();
+        std::fs::write(
+            fixture.join("SKILL.md"),
+            "---\nname: Fixture Only\ndescription: Should not become a card.\n---\n\nFixture.\n",
+        )
+        .unwrap();
+        let data = root.join("data");
+        let db = Db::open(&data).unwrap();
+        let source = create_source(&db, source_input(&root)).unwrap();
+        let summary = sync_source(
+            &db,
+            &reqwest::Client::new(),
+            None,
+            &data.join("tmp"),
+            &source.id,
+            "manual",
+        )
+        .await
+        .unwrap();
+        assert_eq!(summary.found, 1);
+        assert_eq!(summary.created, 1);
+        let page = list_skills(&db, &SkillQuery::default()).unwrap();
+        assert_eq!(page.total, 1);
+        assert_eq!(page.items[0].name, "Shared Skill");
+        assert_eq!(get_source(&db, &source.id).unwrap().skill_count, 1);
         let _ = std::fs::remove_dir_all(root);
     }
 

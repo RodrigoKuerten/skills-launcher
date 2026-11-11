@@ -25,6 +25,23 @@ The app probes versions with fixed arguments and a 3-second timeout. It never ex
 - `skillsPath` is the documented root even when the agent is not detected. It is a destination hint, not detection.
 - The UI should show evidence and paths, and never present a config-only directory as “detected”.
 
+## Existing skills on disk
+
+Skills Launcher also imports skills that were already installed before the app. On startup, when **My Agents** loads, or
+when **Library → Scan installed** is clicked, the app reads every documented user skill root (even when the agent
+executable is not detected). Existing folders become Library entries with `origin=imported` and the **Found on disk**
+badge.
+
+- Only documented user roots are scanned; project-scope roots are not.
+- Regular folders are read in place. Top-level symlinks/junctions are followed only when the resolved target stays inside
+  the user's home directory; nested links are not followed.
+- Importing a skill never executes its content and never marks the agent as detected. Detection still requires runtime
+  evidence.
+- Imported entries are read-only in Library: no update, rollback, uninstall or auto-update. Remove or change the files in
+  the agent folder and rescan instead.
+- The catalog source is named `<Agent> installed` and points at the physical skill root. Duplicate logical skills are
+  collapsed as usual.
+
 ## Manual overrides
 
 If a supported agent is installed in a non-standard location, **My Agents → Add manually** lets the user choose the
@@ -50,7 +67,8 @@ marked `manual: true` in detection results.
 7. On failure, mark the installation `FAILED`; never leave a half-written target.
 
 Update uses the same path. Rollback restores a selected backup after backing up the current tree. Uninstall backs up
-before removing files and keeps the installation history row.
+before removing files and keeps the installation history row. Imported (`origin=imported`) installations are excluded
+from updates, rollback, uninstall and auto-update.
 
 ## Auto-update
 
@@ -68,7 +86,8 @@ updates are always available in Updates.
   documented `~/.codeium/windsurf/skills` root.
 - The desktop GUI was rendered in real CI windows on Ubuntu 24.04, Ubuntu 26.04 and macOS. Linux/macOS click-through
   flows are not automated.
-- Project-scope installs are not in this slice; only user-level roots are written.
+- Project-scope installs are not in this slice; only user-level roots are written and scanned.
+- Imported disk skills are read-only in Library; they are not managed or deleted by the app.
 - No skill script, hook or install command is executed.
 - Detection can miss agents that are running from an unregistered/portable binary or a desktop app with no PATH/known
   install path.

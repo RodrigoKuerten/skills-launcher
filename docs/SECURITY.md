@@ -9,14 +9,17 @@ Skills Launcher treats every source, archive, and skill as untrusted data. Impor
 - **Sources**: adapters read bounded bytes. HTTP clients have redirects disabled; HTTP/JSON and Git sources pre-resolve
   the host and reject localhost/private addresses. ZIPs are parsed in memory, never extracted to disk.
 - **Validation**: POSIX-relative paths only; `..`, backslashes, absolute/drive/UNC paths, reserved Windows names,
-  trailing dots/spaces, case collisions, symlinks and reparse points are rejected. Archive entry counts, bytes,
-  compression ratio, per-file and per-skill budgets are capped.
+  trailing dots/spaces, case collisions, symlinks and reparse points are rejected. Archive entry counts and total/file
+  budgets are capped; legitimate highly-compressible text files are allowed.
 - **Scanner**: prompt injection, exfiltration, destructive/remote execution, safety bypass, secret requests, hidden
   Unicode, non-HTTPS/raw-IP/shortener links and script files. Findings are scored over all findings before display
   truncation. `CRITICAL` is quarantined; `HIGH`/`CRITICAL` installs require an explicit override.
 - **Install**: content hash is re-verified from SQLite; backups precede mutation; staging is a hidden sibling; swaps are
   atomic; user extras are preserved; old managed files are removed; unmanaged existing folders are refused. Symlinks and
   reparse points are rejected throughout. Installs are serialized.
+- **Existing skills import**: Library scans the documented user skill roots and follows only top-level
+  symlinks/junctions whose resolved target is inside the user's home. Imported entries are read-only in Library and are
+  never executed, updated or deleted by the app.
 - **Backups**: stored outside host roots with a manifest beside the tree. Restore recomputes the tree hash and refuses a
   mismatch.
 - **Secrets**: GitHub tokens live in memory only, are never written to SQLite/exports/errors, and are passed to adapters

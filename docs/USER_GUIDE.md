@@ -113,11 +113,17 @@ updates the database. Untracked user files are preserved during updates.
 
 ## Library
 
-**Library** shows what is installed, where, and at which version.
+**Library** shows what is installed, where, and at which version. It reads installations created by the app
+**and skills that were already on disk before the app was installed**.
 
-![Library](audit/library.png)
+![Library with existing skills](audit/library-existing-skills.png)
 
-Each installation provides:
+Existing skills appear with the **Found on disk** badge. They are read-only in Library: the app does not update,
+rollback or delete them. The scan covers the documented user skill folders for all seven supported agents, even when
+the agent executable is not detected. Use **Scan installed** to refresh it. The scan also follows top-level
+symlinks/junctions when their target stays inside your home directory.
+
+Each app-managed installation provides:
 
 - **Update** when a newer version exists;
 - **Rollback/backups** to restore an earlier version;
