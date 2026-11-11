@@ -1353,4 +1353,122 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(root);
     }
+
+    #[tokio::test]
+    #[ignore = "mutates a temporary folder inside the real home; CI sets SKILLS_LAUNCHER_MANUAL_AGENT_SMOKE=1"]
+    async fn manual_agent_detect_install_uninstall() {
+        if std::env::var("SKILLS_LAUNCHER_MANUAL_AGENT_SMOKE").as_deref() != Ok("1") {
+            eprintln!("skipping: SKILLS_LAUNCHER_MANUAL_AGENT_SMOKE is not set");
+            return;
+        }
+        let home = dirs::home_dir().unwrap();
+        let manual_root = home.join(format!(
+            ".skills-launcher-manual-smoke-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let skills_root = manual_root.join("claude-skills");
+        let root = std::env::temp_dir().join(format!(
+            "skills-launcher-manual-source-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let data = root.join("data");
+        let source_dir = root.join("source/demo-skill");
+        std::fs::create_dir_all(&source_dir).unwrap();
+        std::fs::write(
+            source_dir.join("SKILL.md"),
+            "---\nname: Manual Agent Smoke\ndescription: Verifies manual agent installs.\nlicense: MIT\n---\n\nInstall and remove this fixture.\n",
+        )
+        .unwrap();
+
+        let db = Db::open(&data).unwrap();
+        let skills_path = skills_root.to_string_lossy().to_string();
+        crate::agents::set_manual_agent(&db, "claude-code", None, Some(&skills_path)).unwrap();
+        let detected = crate::agents::detect_all(&db).await.unwrap();
+        let claude = detected
+            .iter()
+            .find(|agent| agent.host == "claude-code")
+            .expect("Claude Code descriptor missing");
+        assert!(claude.detected, "manual agent was not detected");
+        assert!(claude.manual, "manual flag was not set");
+        assert_eq!(
+            std::fs::canonicalize(claude.skills_path.as_ref().unwrap()).unwrap(),
+            std::fs::canonicalize(&skills_root).unwrap()
+        );
+
+        let source = crate::catalog::create_source(
+            &db,
+            SourceInput {
+                name: "CI manual fixture".into(),
+                kind: SourceKind::LocalDir,
+                url: root.join("source").to_string_lossy().to_string(),
+                author: "CI".into(),
+                description: String::new(),
+                config: json!({}),
+                trust: "COMMUNITY".into(),
+                enabled: true,
+                auto_sync: false,
+                interval_minutes: 360,
+            },
+        )
+        .unwrap();
+        crate::catalog::sync_source(
+            &db,
+            &reqwest::Client::new(),
+            None,
+            &data.join("tmp"),
+            &source.id,
+            "manual",
+        )
+        .await
+        .unwrap();
+        let skill = crate::catalog::list_skills(&db, &Default::default())
+            .unwrap()
+            .items
+            .into_iter()
+            .next()
+            .expect("manual fixture skill was not indexed");
+        let response = install_skill(
+            &db,
+            &data,
+            &InstallRequest {
+                skill_id: skill.id.clone(),
+                version_id: None,
+                hosts: vec!["claude-code".into()],
+                allow_risky: false,
+            },
+            &detected,
+        )
+        .unwrap();
+        let outcome = response
+            .outcomes
+            .iter()
+            .find(|outcome| outcome.host == "claude-code")
+            .expect("manual install outcome missing");
+        assert!(outcome.ok, "manual install failed: {}", outcome.message);
+        let installed = PathBuf::from(outcome.install_path.clone().unwrap());
+        assert!(installed.starts_with(&skills_root));
+        assert!(installed.join("SKILL.md").is_file());
+
+        let installation_id: String = db
+            .with_conn(|conn| {
+                Ok(conn.query_row(
+                    "SELECT id FROM installations WHERE skill_id=?1 AND host='claude-code' AND status='INSTALLED'",
+                    params![&skill.id],
+                    |row| row.get(0),
+                )?)
+            })
+            .unwrap();
+        uninstall_skill(&db, &data, &installation_id, true).unwrap();
+        assert!(!installed.exists());
+        crate::agents::clear_manual_agent(&db, "claude-code").unwrap();
+        let detected = crate::agents::detect_all(&db).await.unwrap();
+        let claude = detected
+            .iter()
+            .find(|agent| agent.host == "claude-code")
+            .expect("Claude Code descriptor missing after manual removal");
+        assert!(!claude.manual, "manual entry was not removed");
+
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(manual_root);
+    }
 }
