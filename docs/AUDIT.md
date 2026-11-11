@@ -62,6 +62,8 @@ GitHub Actions now launches the release Tauri build and captures the real window
 - Both show the Home route with the **11 seeded sources**; a fresh CI database has no synced skills yet.
 - OpenCode 1.19.5 was installed in both CI jobs and passed real detection plus install/uninstall into
   `~/.config/opencode/skills`.
+- The rebuilt Windows app was installed over the existing database and **Sync all** was clicked in the real WebView2
+  UI: 377 skills from 11 sources, 9 quarantined, 0 console errors. Screenshot: `audit/windows-home-11-sources.png`.
 
 See `docs/CI.md` for the run link, logs and limits.
 

@@ -31,7 +31,11 @@ The app seeds these by stable ID on every database open. `INSERT OR IGNORE` mean
 | Kotlin Backend Agent Skills | `Kotlin/kotlin-backend-agent-skills` — `.agents/skills` | VERIFIED | MIT | 25 skills |
 | OpenClaw Agent Skills | `openclaw/agent-skills` — `skills` | COMMUNITY | MIT | 9 skills |
 
-Fresh-database sync snapshot: **377 skills**, **9 quarantined**, **11 sources**. Upstream counts change. NVIDIA has more than the 200-skill per-source import cap.
+Fresh-database sync snapshot: **377 skills**, **9 quarantined**, **11 sources**; the UI marks 27 skills at risk when
+high/critical findings are included. The installed Windows app was upgraded in place, kept its original 105 skills and
+then synced all six new sources through the real **Sync all** action, reaching the same 377-skill catalog with 0 console
+errors. Screenshot: `docs/audit/windows-home-11-sources.png`. Upstream counts change. NVIDIA has more than the
+200-skill per-source import cap.
 
 Reproduce with:
 

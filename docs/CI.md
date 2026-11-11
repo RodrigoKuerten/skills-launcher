@@ -46,6 +46,18 @@ the WebView showed `Could not connect to localhost`, because the dev URL was sti
   - [Linux Home](audit/linux-home.png)
   - [macOS Home](audit/macos-home.png)
 
+## Windows installed-app source sync
+
+The rebuilt NSIS installer was installed over the existing 0.2.0 install and opened through WebView2 remote debugging.
+A real click on **Sync all** populated the existing database from the 11 seeded sources:
+
+- 11 sources, **377 catalog skills**, 12 categories.
+- 9 `QUARANTINED`; 27 total high/critical or quarantined.
+- 0 console errors.
+- Screenshot: [Windows Home, 11 sources](audit/windows-home-11-sources.png).
+
+The existing 105 skills from the original five sources were preserved; the six new sources added 272 skills.
+
 ## What this proves
 
 - The Tauri release build starts and renders the actual React UI on Linux (WebKitGTK) and macOS (WKWebView).
