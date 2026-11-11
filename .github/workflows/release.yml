@@ -66,8 +66,14 @@ jobs:
           pattern: release-*
           path: release-assets
           merge-multiple: true
+      - name: Flatten release assets
+        run: |
+          set -euo pipefail
+          mkdir -p release-files
+          find release-assets -type f -exec cp {} release-files/ \;
+          ls -lh release-files
       - name: Generate checksums
-        working-directory: release-assets
+        working-directory: release-files
         run: |
           set -euo pipefail
           for file in *; do
@@ -84,7 +90,7 @@ jobs:
           draft: false
           prerelease: false
           fail_on_unmatched_files: true
-          files: release-assets/*
+          files: release-files/*
           body: |
             ## Skills Launcher ${{ github.ref_name }}
 
