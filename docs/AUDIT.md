@@ -51,26 +51,29 @@ reported **0 console errors**.
 - Normalized non-SPDX license strings to `See LICENSE`; trust labels now state that they are self-declared source labels.
 - Kept compact/icon-only sidebar at 980×640 and verified both dark and light palettes; reduced-motion support remains.
 
-## Cross-platform GUI follow-up (2026-11-10)
+## Cross-platform GUI follow-up (2026-11-11)
 
-GitHub Actions now launches the release Tauri build and captures the real window on both platforms:
+GitHub Actions launches the release Tauri build and captures the real window on all three runners:
 
-- Linux (WebKitGTK/Xvfb): `1320x860`, non-blank render (`stddev 0.0985792`), screenshot
+- Ubuntu 24.04 (WebKitGTK/Xvfb): `1320x860`, non-blank render (`stddev 0.0984981`), screenshot
   `audit/linux-home.png`.
+- Ubuntu 26.04 (WebKitGTK/Xvfb): `1320x860`, non-blank render (`stddev 0.0998979`), screenshot
+  `audit/ubuntu-2604-home.png`.
 - macOS (WKWebView/CoreGraphics): `1136x786` window capture, non-blank render (`stddev 0.198919`),
   screenshot `audit/macos-home.png`.
-- Both show the Home route with the **11 seeded sources**; a fresh CI database has no synced skills yet.
-- OpenCode 1.19.5 was installed in both CI jobs and passed real detection plus install/uninstall into
-  `~/.config/opencode/skills`.
+- All show the Home route with the **11 seeded sources**; a fresh CI database has no synced skills yet.
+- Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, Windsurf/Devin Desktop and OpenCode were installed as real
+  runtimes and passed detection plus install/uninstall into each documented user skills root on Ubuntu 24.04,
+  Ubuntu 26.04 and macOS.
 - The rebuilt Windows app was installed over the existing database and **Sync all** was clicked in the real WebView2
   UI: 377 skills from 11 sources, 9 quarantined, 0 console errors. Screenshot: `audit/windows-home-11-sources.png`.
 
-See `docs/CI.md` for the run link, logs and limits.
+See `docs/CI.md` for the run link, versions, paths and limits.
 
 ## Residual limits
 
 - Windows/WebView2 is the only runtime with full click-through interaction exercised. Linux/macOS CI verifies
-  render and window presence plus the real OpenCode backend flow, not click-through UI flows.
+  render and window presence plus all seven real agent install flows, not click-through UI flows.
 - Project-scope install is not implemented; only user-level skill roots are written.
 - No screenshots from a real second monitor/DPI setup; layout tested at 1320×860 and 980×640.
 - Form dirty-state protection and a full WAI-ARIA radio group for theme cards are still future polish.

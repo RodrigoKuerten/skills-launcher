@@ -26,9 +26,10 @@ Skills Launcher treats every source, archive, and skill as untrusted data. Impor
 
 ## Residual risks / limits
 
-- Windows/WebView2 is the only fully interactive flow validated. Linux and macOS compile, pass the shared Rust tests,
-  render the real Tauri window, and pass an OpenCode 1.19.5 detection/install/uninstall smoke in CI (`docs/CI.md`).
-  Other agent hosts and click-through GUI flows on Linux/macOS are not verified.
+- Windows/WebView2 is the only fully click-through flow validated. Ubuntu 24.04, Ubuntu 26.04 and macOS compile, pass the
+  shared Rust tests, render the real Tauri window, and pass real detection plus install/uninstall for Claude Code, Codex,
+  Cursor, GitHub Copilot, Gemini CLI, Windsurf/Devin Desktop and OpenCode in CI (`docs/CI.md`). Click-through GUI flows
+  on Linux/macOS are not verified.
 - DNS rebinding between host validation and connect is not fully prevented; use connect-time pinning if remote catalogs
   become a shared service. Git itself follows its own transport rules (redirects disabled above).
 - Checksums prove integrity, not author authenticity. Source trust is a user-visible signal, not a signature.

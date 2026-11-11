@@ -7,8 +7,9 @@ verifiable sources, inspect provenance and security findings, install them into 
 them current with backups and rollback.
 
 > Automated scans are heuristics, not a security guarantee. Compatibility badges describe Agent Skills format support,
-> not a promise that a specific agent build will load every field. macOS/Linux CI validates the real Tauri window and
-> an OpenCode install smoke; other agent hosts and packaged installers there still need validation.
+> not a promise that a specific agent build will load every field. CI validates the real Tauri window on Ubuntu 24.04,
+> Ubuntu 26.04 and macOS, plus real detection/install paths for all seven agents; click-through GUI and packaged
+> installers there still need validation.
 
 ## Desktop app (primary product)
 
@@ -32,7 +33,7 @@ normal shell can build.
   local directories, ZIP files, HTTPS Git repositories and versioned HTTP JSON catalogs. Add/edit/remove/enable/disable/sync, auto-sync and JSON
   import/export.
 - **Agents**: evidence-based detection for Claude Code, OpenAI Codex, OpenCode, Cursor, GitHub Copilot, Gemini CLI and
-  Windsurf. A config folder alone is never treated as an installation.
+  Windsurf / Devin Desktop. A config folder alone is never treated as an installation.
 - **Install lifecycle**: one-click install to one or many detected agents, update, uninstall, backup, rollback and an
   operation log. Existing untracked user files survive updates; old managed files are removed.
 - **Security**: imported content is untrusted data. Paths are validated, symlinks/reparse points and ZIP traversal are
@@ -90,7 +91,7 @@ do not use the loopback companion.
 - `docs/AGENTS.md` — host matrix, detection evidence, install/backup/rollback
 - `docs/SECURITY.md` — security boundaries and residual risks
 - `docs/AUDIT.md` — Playwright design audit and screenshots
-- `docs/CI.md` - Linux/macOS GUI, OpenCode and cross-platform test evidence
+- `docs/CI.md` - Ubuntu 24.04/26.04, macOS GUI and seven-agent test evidence
 - `docs/research/competitors.md` — source-linked competitor/license research
 - `docs/ARCHITECTURE.md` — earlier web/companion architecture
 

@@ -10,17 +10,17 @@ directory alone is never enough.
 | Claude Code | `claude` | `~/.claude/skills` | `.claude/skills` |
 | OpenAI Codex | `codex` | `~/.agents/skills` | `.agents/skills` |
 | OpenCode | `opencode`, `opencode-cli`, OpenCode Desktop app | `~/.config/opencode/skills` | `.opencode/skills` |
-| Cursor | `cursor` / `agent` or the installed app | `~/.cursor/skills` | `.cursor/skills` |
-| GitHub Copilot | `copilot`, or VS Code with the Copilot extension | `~/.copilot/skills` | `.github/skills` |
+| Cursor | `cursor-agent` / `cursor`, or the installed app | `~/.cursor/skills` | `.cursor/skills` |
+| GitHub Copilot | `copilot` CLI (version must identify GitHub Copilot), or VS Code with the Copilot extension | `~/.copilot/skills` | `.github/skills` |
 | Gemini CLI | `gemini` | `~/.gemini/skills` | `.gemini/skills` |
-| Windsurf | `windsurf` or the installed app | `~/.codeium/windsurf/skills` | `.windsurf/skills` |
+| Windsurf / Devin Desktop | `devin-desktop` / `windsurf`, or the installed app | `~/.codeium/windsurf/skills` | `.windsurf/skills` |
 
 The app probes versions with fixed arguments and a 3-second timeout. It never executes imported skill content.
 
 ## Detection rules
 
-- `detected` requires an executable on `PATH`, a known application binary, or (for Copilot) VS Code plus the
-  GitHub Copilot extension directory.
+- `detected` requires an executable on `PATH`, a known application binary, the official GitHub Copilot CLI version
+  string, or (for Copilot) VS Code plus the GitHub Copilot extension directory.
 - An ambiguous/overlapping root is reported in `notes`; Codex installs go to `.agents/skills` when both roots exist.
 - `skillsPath` is the documented root even when the agent is not detected. It is a destination hint, not detection.
 - The UI should show evidence and paths, and never present a config-only directory as “detected”.
@@ -47,10 +47,13 @@ updates are always available in Updates.
 ## Limits
 
 - Windows is the fully validated interactive runtime.
-- Linux and macOS now have CI evidence for the real Tauri window plus a real OpenCode 1.19.5 CLI:
-  `real_opencode_detect_install_uninstall` detects the executable, installs a temporary skill into
-  `~/.config/opencode/skills`, verifies `SKILL.md`, and removes it on Ubuntu 24.04 and macOS arm64. See `docs/CI.md`.
-- The other six host descriptors are not yet exercised on Linux/macOS; do not claim them verified there.
+- Linux (Ubuntu 24.04 and 26.04) and macOS arm64 have CI evidence for all seven hosts:
+  `real_agents_detect_install_uninstall` detects the real executables, installs a temporary skill into each documented
+  user root, verifies `SKILL.md`, and removes it. Versions and paths are recorded in `docs/CI.md`.
+- Cursor uses the official `cursor-agent` CLI; Windsurf uses the current `devin-desktop` package while retaining the
+  documented `~/.codeium/windsurf/skills` root.
+- The desktop GUI was rendered in real CI windows on Ubuntu 24.04, Ubuntu 26.04 and macOS. Linux/macOS click-through
+  flows are not automated.
 - Project-scope installs are not in this slice; only user-level roots are written.
 - No skill script, hook or install command is executed.
 - Detection can miss agents that are running from an unregistered/portable binary or a desktop app with no PATH/known

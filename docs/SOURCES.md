@@ -100,5 +100,5 @@ The scanner checks prompt-injection language, exfiltration/destructive commands,
 - Source config editing is limited to the fields exposed in the UI; GitHub branch/subpath editing uses the source form.
 - Auto-sync runs on a 5-minute scheduler when enabled in Settings and the source has `autoSync`. There is no durable
   job queue or retry/backoff yet.
-- Windows has full interactive validation. Linux/macOS now build, render the real Tauri window and run a real
-  OpenCode detection/install smoke in CI (`docs/CI.md`); the other host adapters are not yet exercised there.
+- Windows has full interactive validation. Ubuntu 24.04, Ubuntu 26.04 and macOS build, render the real Tauri window
+  and run real detection/install/uninstall for all seven supported agents in CI (`docs/CI.md`).

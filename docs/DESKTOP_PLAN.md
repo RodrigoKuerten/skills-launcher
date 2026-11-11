@@ -120,8 +120,8 @@ Current Windows evidence (2026-11-10):
 Remaining acceptance checks:
 
 - UI import/export round-trip against a second install (backend parsing is tested, UI flow is not automated).
-- Linux/macOS click-through GUI flows and the remaining agent hosts. CI already validates the real window render,
-  OpenCode 1.19.5 detection/install/uninstall and the shared tests; it does not automate interactions or install
-  Claude Code, Codex, Cursor, Copilot, Gemini CLI or Windsurf there.
+- Linux/macOS click-through GUI flows. CI already validates the real window render on Ubuntu 24.04, Ubuntu 26.04 and
+  macOS, plus detection/install/uninstall for Claude Code, Codex, Cursor, Copilot, Gemini CLI, Windsurf/Devin Desktop
+  and OpenCode; it does not automate UI interactions there.
 - Project-scope installs and code signing are future work.
 - No remote URL, source content or skill file is rendered as raw HTML.
