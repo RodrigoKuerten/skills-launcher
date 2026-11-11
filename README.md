@@ -29,7 +29,7 @@ normal shell can build.
 
 - **Catalog**: SQLite with sources, immutable versions, provenance, categories, trust, risk/security findings and
   compatibility; search, filters and sorts.
-- **Sources**: 11 seeded real catalogs plus extensible Rust adapters for GitHub repositories, GitHub organizations,
+- **Sources**: 23 seeded verified catalogs plus extensible Rust adapters for GitHub repositories, GitHub organizations,
   local directories, ZIP files, HTTPS Git repositories and versioned HTTP JSON catalogs. Add/edit/remove/enable/disable/sync, auto-sync and JSON
   import/export.
 - **Agents**: evidence-based detection for Claude Code, OpenAI Codex, OpenCode, Cursor, GitHub Copilot, Gemini CLI and

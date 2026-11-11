@@ -30,12 +30,25 @@ The app seeds these by stable ID on every database open. `INSERT OR IGNORE` mean
 | Anthony Fu Skills | `antfu/skills` — `skills` | COMMUNITY | MIT | 14 skills |
 | Kotlin Backend Agent Skills | `Kotlin/kotlin-backend-agent-skills` — `.agents/skills` | VERIFIED | MIT | 25 skills |
 | OpenClaw Agent Skills | `openclaw/agent-skills` — `skills` | COMMUNITY | MIT | 9 skills |
+| Matt Pocock Skills | `mattpocock/skills` — `skills` | VERIFIED | MIT | 39 skills |
+| Superpowers | `obra/superpowers` — `skills` | VERIFIED | MIT | 15 skills |
+| Addy Osmani Agent Skills | `addyosmani/agent-skills` — `skills` | VERIFIED | MIT | 25 skills (2 quarantined) |
+| Marketing Skills | `coreyhaines31/marketingskills` — `skills` | VERIFIED | MIT | 53 skills (2 quarantined) |
+| Wshobson Agent Skills | `wshobson/agents` — `plugins` | COMMUNITY | MIT | 185 skills |
+| Baoyu Skills | `JimLiu/baoyu-skills` — `skills` | VERIFIED | MIT | 21 skills (1 quarantined) |
+| Firebase Agent Skills | `firebase/agent-skills` — `skills` | OFFICIAL | Apache-2.0 | 14 skills |
+| Google Agents CLI Skills | `google/agents-cli` — `skills` | OFFICIAL | Apache-2.0 | 7 skills |
+| Google DeepMind Science Skills | `google-deepmind/science-skills` — `skills` | OFFICIAL | Apache-2.0 | 40 skills |
+| Expo Skills | `expo/skills` — `plugins` | OFFICIAL | MIT | 24 skills |
+| Prisma Skills | `prisma/skills` — root | OFFICIAL | MIT | 11 skills |
+| Softaworks Agent Toolkit | `softaworks/agent-toolkit` — `dist` | COMMUNITY | MIT | 43 skills |
 
-Fresh-database sync snapshot: **377 skills**, **9 quarantined**, **11 sources**; the UI marks 27 skills at risk when
-high/critical findings are included. The installed Windows app was upgraded in place, kept its original 105 skills and
-then synced all six new sources through the real **Sync all** action, reaching the same 377-skill catalog with 0 console
-errors. Screenshot: `docs/audit/windows-home-11-sources.png`. Upstream counts change. NVIDIA has more than the
-200-skill per-source import cap.
+Fresh-database sync snapshot: **854 skills**, **14 quarantined**, **38 at risk**, **23 sources**. The previous 11-source
+snapshot had 377 skills; the 12 added sources contribute 477 real skills. Upstream counts change. NVIDIA has more than
+the 200-skill per-source import cap.
+
+All 23 seeded sources were synced together with `seeded_sources_sync_smoke`; every source returned `status=ok`, no
+archive/path errors. The installed Windows catalog is refreshed through the real **Sync all** action after this change.
 
 Reproduce with:
 
@@ -44,7 +57,19 @@ cd apps/desktop/src-tauri
 cargo test seeded_sources_sync_smoke -- --ignored --nocapture
 ```
 
-`github/awesome-copilot` was evaluated but is not seeded: its repository archive exceeds the codeload expansion budget before the `skills/` subpath can be scanned. Adding it would require a partial-archive adapter.
+## Researched but not seeded
+
+These are real, high-signal sources that failed a hard requirement (license or archive budget):
+
+- `K-Dense-AI/scientific-agent-skills`: 177 skills, MIT, but the repository is ~471 MB and exceeds the archive budget.
+- `sickn33/agentic-awesome-skills`: 9,080 `SKILL.md` files, MIT, but ~451 MB and far beyond the per-source cap.
+- `github/awesome-copilot`: real `skills/` directory, MIT, but the repository archive expands beyond the codeload
+  budget before subpath filtering.
+- `JetBrains/skills`, `browserbase/skills`, `remotion-dev/skills`, `Shopify/agent-skills`: real skills found, but no
+  license file/license metadata was detected, so they were not imported.
+
+A partial-archive/sparse-source adapter would be required to include the oversized catalogs without downloading the
+entire repository.
 
 ## GitHub behavior
 

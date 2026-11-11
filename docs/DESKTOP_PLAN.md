@@ -104,10 +104,11 @@ release cadence appears.
 
 ## Acceptance checks
 
-Current Windows evidence (2026-11-10):
+Current Windows evidence (2026-11-11):
 
-- Source sync smoke against a fresh database imports **377 real skills** from the **11 seeded sources** (9 quarantined,
-  0 invented rows). The original five-source Windows audit imported 105; the six added sources bring the catalog to 377.
+- Source sync smoke against a fresh database imports **854 real skills** from the **23 seeded sources**
+  (14 quarantined, 38 at risk, 0 invented rows). The installed Windows catalog was refreshed through **Sync all** and
+  reached the same 23-source / 854-skill snapshot.
 - Local source sync, security quarantine, install/update with user extras, backups, rollback, ZIP traversal and path
   validation pass in `cargo test` (9 passing) and `cargo clippy -- -D warnings`.
 - Real detection on this machine reports only OpenCode (runtime evidence); config/skills folders alone stay

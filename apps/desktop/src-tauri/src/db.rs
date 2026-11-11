@@ -364,6 +364,18 @@ impl Db {
                 ("antfu-skills", "Anthony Fu Skills", "github_repo", "https://github.com/antfu/skills", "skills", "COMMUNITY", "Anthony Fu's curated agent skills for frontend and tooling workflows.", Some("MIT")),
                 ("kotlin-backend-agent-skills", "Kotlin Backend Agent Skills", "github_repo", "https://github.com/Kotlin/kotlin-backend-agent-skills", ".agents/skills", "VERIFIED", "Kotlin backend skills maintained by the Kotlin project.", Some("MIT")),
                 ("openclaw-agent-skills", "OpenClaw Agent Skills", "github_repo", "https://github.com/openclaw/agent-skills", "skills", "COMMUNITY", "Operational skills maintained by the OpenClaw project.", Some("MIT")),
+                ("mattpocock-skills", "Matt Pocock Skills", "github_repo", "https://github.com/mattpocock/skills", "skills", "VERIFIED", "Engineering workflows and TypeScript craft from Matt Pocock.", Some("MIT")),
+                ("obra-superpowers", "Superpowers", "github_repo", "https://github.com/obra/superpowers", "skills", "VERIFIED", "Agentic planning, review and verification methodology.", Some("MIT")),
+                ("addyosmani-agent-skills", "Addy Osmani Agent Skills", "github_repo", "https://github.com/addyosmani/agent-skills", "skills", "VERIFIED", "Production engineering skills from Addy Osmani.", Some("MIT")),
+                ("corey-haines-marketing-skills", "Marketing Skills", "github_repo", "https://github.com/coreyhaines31/marketingskills", "skills", "VERIFIED", "Marketing, SEO, advertising and growth workflows.", Some("MIT")),
+                ("wshobson-agents", "Wshobson Agent Skills", "github_repo", "https://github.com/wshobson/agents", "plugins", "COMMUNITY", "Skills and agent plugins for engineering teams.", Some("MIT")),
+                ("baoyu-skills", "Baoyu Skills", "github_repo", "https://github.com/JimLiu/baoyu-skills", "skills", "VERIFIED", "Content, visual and workflow skills from Baoyu.", Some("MIT")),
+                ("firebase-agent-skills", "Firebase Agent Skills", "github_repo", "https://github.com/firebase/agent-skills", "skills", "OFFICIAL", "Official skills for Firebase app development.", Some("Apache-2.0")),
+                ("google-agents-cli-skills", "Google Agents CLI Skills", "github_repo", "https://github.com/google/agents-cli", "skills", "OFFICIAL", "Official skills for Google Agents CLI and ADK workflows.", Some("Apache-2.0")),
+                ("deepmind-science-skills", "Google DeepMind Science Skills", "github_repo", "https://github.com/google-deepmind/science-skills", "skills", "OFFICIAL", "Official DeepMind skills for scientific workflows.", Some("Apache-2.0")),
+                ("expo-skills", "Expo Skills", "github_repo", "https://github.com/expo/skills", "plugins", "OFFICIAL", "Official Expo skills for React Native and EAS workflows.", Some("MIT")),
+                ("prisma-skills", "Prisma Skills", "github_repo", "https://github.com/prisma/skills", "", "OFFICIAL", "Official Prisma skills for schema, client and database workflows.", Some("MIT")),
+                ("softaworks-agent-toolkit", "Softaworks Agent Toolkit", "github_repo", "https://github.com/softaworks/agent-toolkit", "dist", "COMMUNITY", "Curated multi-agent engineering and documentation skills.", Some("MIT")),
             ];
             // Seed by stable ID on every open so existing databases receive new recommendations.
             for (id, name, kind, url, path, trust, description, license) in seed_sources {
@@ -624,11 +636,16 @@ mod tests {
             std::env::temp_dir().join(format!("skills-launcher-seed-{}", uuid::Uuid::new_v4()));
         let db = Db::open(&data).unwrap();
         let first = db.list_sources().unwrap();
-        assert!(first.len() >= 11);
+        assert!(first.len() >= 23);
         assert!(first.iter().any(|source| source.id == "nvidia-skills"));
         assert!(first
             .iter()
             .any(|source| source.id == "kotlin-backend-agent-skills"));
+        assert!(first.iter().any(|source| source.id == "mattpocock-skills"));
+        assert!(first
+            .iter()
+            .any(|source| source.id == "firebase-agent-skills"));
+        assert!(first.iter().any(|source| source.id == "prisma-skills"));
         drop(db);
 
         let db = Db::open(&data).unwrap();

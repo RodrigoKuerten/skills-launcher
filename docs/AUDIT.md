@@ -61,12 +61,14 @@ GitHub Actions launches the release Tauri build and captures the real window on 
   `audit/ubuntu-2604-home.png`.
 - macOS (WKWebView/CoreGraphics): `1136x786` window capture, non-blank render (`stddev 0.198919`),
   screenshot `audit/macos-home.png`.
-- All show the Home route with the **11 seeded sources**; a fresh CI database has no synced skills yet.
+- The CI screenshots show the Home route with the 11 sources present when they were captured; they predate the later
+  23-source expansion and still show a fresh CI database with no synced skills.
 - Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, Windsurf/Devin Desktop and OpenCode were installed as real
   runtimes and passed detection plus install/uninstall into each documented user skills root on Ubuntu 24.04,
   Ubuntu 26.04 and macOS.
 - The rebuilt Windows app was installed over the existing database and **Sync all** was clicked in the real WebView2
-  UI: 377 skills from 11 sources, 9 quarantined, 0 console errors. Screenshot: `audit/windows-home-11-sources.png`.
+  UI: 854 skills from 23 sources, 14 quarantined, 38 at risk, 0 console errors.
+  Screenshot: `audit/windows-home-23-sources.png`.
 - Risk badges now use a custom SVG shield and are clickable. A real click in the Windows WebView2 app opened the
   four-level explanation with the current level, install consequences, scanner method and safety caveat. Escape closed
   it with 0 console errors. [Screenshot](audit/risk-dialog.png).
