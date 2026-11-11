@@ -34,5 +34,5 @@ target.
 - macOS and Linux builds are unsigned; macOS Gatekeeper will require explicit approval.
 - The current macOS asset is Apple Silicon only.
 - The release workflow does not build a Windows MSI; NSIS is the supported Windows installer.
-- AppImage and DMG creation depend on Tauri's platform bundlers and are validated in GitHub Actions, not on this
-  Windows development machine.
+- The Linux `.deb` is installed and launched by the Linux E2E job. AppImage and DMG creation depend on Tauri's platform
+  bundlers and are validated by the release build, but are not installed interactively.

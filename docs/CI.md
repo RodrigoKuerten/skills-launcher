@@ -2,8 +2,8 @@
 
 Workflow: `.github/workflows/cross-platform.yml`
 
-Latest fully green `main` run: <https://github.com/RodrigoKuerten/skills-launcher/actions/runs/42932985565>
-Commit: `ceb4da7887114c122a1b266fe7396a3c0be91ff9`
+Latest fully green `main` run: <https://github.com/RodrigoKuerten/skills-launcher/actions/runs/43100847158>
+Commit: `4c3dd0ad4bcaedb2c3e5ef14e6f450c1f8f6fa2e`
 
 | Job | Runner | Result |
 | --- | --- | --- |
@@ -14,6 +14,7 @@ Commit: `ceb4da7887114c122a1b266fe7396a3c0be91ff9`
 | `agents / ubuntu-24.04` | Ubuntu 24.04 | success |
 | `agents / ubuntu-26.04` | Ubuntu 26.04 | success |
 | `agents / macos` | macOS arm64 | success |
+| `linux-e2e / ubuntu-24.04` | Ubuntu 24.04 package install + GUI | success |
 | `runtime / linux-24.04` | Ubuntu 24.04 + Xvfb/DBus | success |
 | `runtime / linux-26.04` | Ubuntu 26.04 + Xvfb/DBus | success |
 | `runtime / macos` | macOS arm64 GUI session | success |
@@ -83,9 +84,22 @@ A real click on **Sync all** populated the existing database from all 23 seeded 
 The existing catalog was preserved; after adding the 12 new sources, the installed app reached 854 skills with 23
 sources.
 
+## Linux package E2E
+
+`linux-e2e / ubuntu-24.04` closes the packaging gap:
+
+1. builds the Tauri `.deb` and AppImage;
+2. installs the `.deb` with `apt-get`;
+3. runs `seeded_sources_sync_smoke` against all 23 seeded sources;
+4. launches the **installed** `/usr/bin/skills-launcher` binary under Xvfb/DBus and verifies a rendered window.
+
+The 23-source sync completed with the expected catalog, and the installed package window rendered successfully.
+Screenshot: [Linux installed package](audit/linux-e2e-installed.png).
+
 ## What this proves
 
 - The Tauri release build starts and renders the real React UI on Ubuntu 24.04, Ubuntu 26.04 and macOS.
+- The Linux `.deb` installs and the installed binary launches under Xvfb; all 23 seeded sources sync on Linux.
 - The shared Rust tests and frontend build pass on Windows, Ubuntu 24.04, Ubuntu 26.04 and macOS.
 - All seven supported agent hosts are detected from real runtimes and their documented user install roots are exercised
   end to end on Ubuntu 24.04, Ubuntu 26.04 and macOS.
@@ -97,6 +111,6 @@ sources.
 - The GUI check verifies rendering and process stability; it does not click through app flows or assert individual DOM
   elements on Linux/macOS. Windows had one real click-driven `Sync all` flow.
 - Linux runs in Xvfb, not a physical desktop/compositor. macOS runs in a GitHub-hosted VM, not physical hardware.
-- No `.deb`, AppImage or `.dmg` installer is produced by this workflow. Windows NSIS remains the only packaged installer
-  that has been installed interactively.
+- The Linux `.deb` is installed and launched in CI; the AppImage and macOS `.dmg` are built and published but not
+  installed interactively.
 - Screenshot/window checks are limited to the Home route on a clean database.
