@@ -32,6 +32,8 @@ const routes = [
 ];
 
 async function shot(name) {
+  await page.evaluate(() => window.scrollTo({ top: 0, left: 0 }));
+  await page.waitForTimeout(150);
   await page.screenshot({ path: path.join(outDir, `${name}.png`) });
 }
 
@@ -69,7 +71,7 @@ if (await search.count()) {
 const firstSkill = page.locator("article").first();
 if (await firstSkill.count()) {
   await firstSkill.click();
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(1400);
   await shot("skill-detail");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(250);
@@ -82,6 +84,16 @@ if (await addSource.count()) {
   await addSource.click();
   await page.waitForTimeout(350);
   await shot("source-form");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(250);
+}
+
+// Source import/export dialog.
+const transfer = page.getByRole("button", { name: /Import \/ export/i }).first();
+if (await transfer.count()) {
+  await transfer.click();
+  await page.waitForTimeout(450);
+  await shot("source-transfer");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(250);
 }

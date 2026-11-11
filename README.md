@@ -90,8 +90,10 @@ do not use the loopback companion.
 - `docs/SOURCES.md` — adapter configs, limits and scanner rules
 - `docs/AGENTS.md` — host matrix, detection evidence, install/backup/rollback
 - `docs/SECURITY.md` — security boundaries and residual risks
-- `docs/AUDIT.md` — Playwright design audit and screenshots
+- `docs/USER_GUIDE.md` - guia de uso com prints de cada funcionalidade
+- `docs/AUDIT.md` - Playwright design audit and screenshots
 - `docs/CI.md` - Ubuntu 24.04/26.04, macOS GUI and seven-agent test evidence
+- `docs/RELEASES.md` - release assets, checksums and publishing workflow
 - `docs/research/competitors.md` — source-linked competitor/license research
 - `docs/ARCHITECTURE.md` — earlier web/companion architecture
 

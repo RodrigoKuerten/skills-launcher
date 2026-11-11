@@ -283,6 +283,10 @@ export default function SettingsPage() {
               provenance live in the local catalog; the UI only talks to the Rust backend.
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px]">
+              <ExternalLink href="https://github.com/RodrigoKuerten/skills-launcher/blob/main/docs/USER_GUIDE.md">
+                <BookOpen className="mr-0.5 inline size-3" aria-hidden="true" />
+                User guide with screenshots
+              </ExternalLink>
               <ExternalLink href="https://code.claude.com/docs/en/skills">
                 <BookOpen className="mr-0.5 inline size-3" aria-hidden="true" />
                 Agent Skills docs
