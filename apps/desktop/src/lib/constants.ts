@@ -1,7 +1,7 @@
 import type { RiskLevel, SkillSort, SourceKind, TrustLevel } from "./types";
 
 export const APP_NAME = "Skills Launcher";
-export const APP_VERSION = "0.2.1";
+export const APP_VERSION = "0.2.2";
 
 export interface HostMeta {
   id: string;

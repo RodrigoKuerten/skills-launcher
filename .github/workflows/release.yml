@@ -116,6 +116,8 @@ jobs:
             - Duplicate agent-specific copies (e.g. RTK and Caveman) collapse to one catalog card per logical skill.
             - Refined motion system: staggered card reveals, page transitions, hover lift, shimmer loading states,
               toolbar progress and a crossfade when switching light/dark appearance.
+            - **Folder guide** in My Agents documents every supported user skills path for Windows, macOS and Linux,
+              including the manual add flow when an agent is not detected.
             - App/taskbar icon padding was normalized so the logo fills the Windows tile.
             - Linux `.deb` install, source sync, manual agents and existing-skill import are covered by E2E CI.
 

@@ -160,6 +160,41 @@ Use **Rescan** after installing or removing an agent. A configuration folder alo
 
 Supported agents: Claude Code, OpenAI Codex, OpenCode, Cursor, GitHub Copilot, Gemini CLI, and Windsurf/Devin Desktop.
 
+### Where skill folders live
+
+Use **Folder guide** in My Agents for the same reference inside the app.
+
+| Agent | User skills folder |
+| --- | --- |
+| Claude Code | `~/.claude/skills` |
+| OpenAI Codex | `~/.agents/skills` |
+| OpenCode | `~/.config/opencode/skills` |
+| Cursor | `~/.cursor/skills` |
+| Windsurf / Devin Desktop | `~/.codeium/windsurf/skills` |
+| GitHub Copilot | `~/.copilot/skills` |
+| Gemini CLI | `~/.gemini/skills` |
+
+`~` is the signed-in user's home directory:
+
+- **Windows:** `C:\Users\<you>` (for example `C:\Users\<you>\.claude\skills`);
+- **macOS:** `/Users/<you>` (for example `/Users/<you>/.claude/skills`);
+- **Linux:** `/home/<you>` (for example `/home/<you>/.claude/skills`).
+
+Detection and the folder are separate signals. The app needs runtime evidence to mark an agent **Detected**, but it
+also scans these user folders for skills that were already installed and shows them in Library as **Found on disk**.
+Only user-level roots are scanned; project folders such as `.claude/skills` inside a repository can be added as a local
+Source instead.
+
+### If the agent is not detected
+
+![Folder guide](audit/agents-folder-guide.png)
+
+1. Install the real agent executable or desktop app, then use **Rescan**.
+2. If it is still missing because it lives in a non-standard location, use **Add manually**.
+3. Choose the agent, optionally point to the executable, and set its user skills folder.
+4. Save. The agent becomes **Manual entry** and can receive installs.
+5. Existing skills in that folder are still imported into Library even before the agent is manually added.
+
 ### Add an agent manually
 
 If an agent is installed in a non-standard location and detection still misses it, use **Add manually**.
