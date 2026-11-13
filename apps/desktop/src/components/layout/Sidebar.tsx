@@ -55,10 +55,7 @@ export interface SidebarProps {
 
 export function Sidebar({ route }: SidebarProps) {
   const { bootstrap } = useAppData();
-  const sources = bootstrap?.sources ?? [];
   const stats = bootstrap?.stats;
-  const issueCount = sources.filter((source) => source.enabled && source.lastError).length;
-  const lastSync = stats?.lastSyncAt;
 
   return (
     <aside className="relative z-30 flex h-full w-[72px] shrink-0 flex-col border-r border-line bg-surface/55 lg:w-[236px]">
@@ -147,44 +144,8 @@ export function Sidebar({ route }: SidebarProps) {
         </div>
       </nav>
 
-      <div className="shrink-0 border-t border-line/70 p-2.5 lg:p-3">
-        <Tooltip label={issueCount ? `${issueCount} ${issueCount === 1 ? "source needs" : "sources need"} attention` : "Catalog status"} side="right" hideOnLarge>
-          <button
-            type="button"
-            onClick={() => navigate("activity")}
-            className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-line bg-elevated/30 px-2.5 py-2 text-left transition-colors hover:border-brand/25 hover:bg-elevated/55 lg:justify-start"
-            aria-label={issueCount ? `${issueCount} ${issueCount === 1 ? "source needs" : "sources need"} attention` : "Open Downloads"}
-          >
-            <span className="relative shrink-0 lg:hidden">
-              <ArrowDownToLine className="size-4 text-muted" aria-hidden="true" />
-              <span
-                className={cx(
-                  "absolute -right-0.5 -top-0.5 size-1.5 rounded-full ring-2 ring-surface",
-                  issueCount ? "bg-danger" : lastSync ? "bg-ok" : "bg-warn",
-                )}
-                aria-hidden="true"
-              />
-            </span>
-            <span
-              className={cx(
-                "hidden size-1.5 shrink-0 rounded-full lg:block",
-                issueCount ? "bg-danger" : lastSync ? "bg-ok" : "bg-warn",
-              )}
-              aria-hidden="true"
-            />
-            <span className="hidden min-w-0 lg:block">
-              <span className="block truncate text-[11px] font-medium text-text/85">
-                {issueCount
-                  ? `${issueCount} ${issueCount === 1 ? "source needs" : "sources need"} attention`
-                  : "Local catalog ready"}
-              </span>
-              <span className="mt-0.5 block truncate text-[11px] text-muted-soft">
-                {sources.length} {sources.length === 1 ? "source" : "sources"} · local SQLite
-              </span>
-            </span>
-          </button>
-        </Tooltip>
-        <p className="mt-2 hidden text-center text-[11px] tracking-[0.08em] text-muted-soft lg:block">
+      <div className="shrink-0 px-2.5 py-3 lg:px-3">
+        <p className="text-center text-[11px] tracking-[0.08em] text-muted-soft">
           v{APP_VERSION}
         </p>
       </div>
