@@ -1,6 +1,8 @@
 ﻿import { useCallback, useEffect, useRef, useState } from "react";
 import { Compass, SearchX, TriangleAlert, X } from "lucide-react";
 import { useAppData } from "../app/app-context";
+import { useInstallQueue } from "../app/install-queue";
+import { queueBlockReason } from "../lib/install-queue";
 import { PageHeader } from "../components/layout/PageHeader";
 import { Pagination } from "../components/Pagination";
 import { SkillCard } from "../components/SkillCard";
@@ -26,6 +28,7 @@ const PAGE_SIZE = 18;
 
 export default function ExplorePage({ params }: ExplorePageProps) {
   const { bootstrap, revision, refresh } = useAppData();
+  const queue = useInstallQueue();
   const [q, setQ] = useState(params.get("q") ?? "");
   const [debouncedQ, setDebouncedQ] = useState((params.get("q") ?? "").trim());
   const [category, setCategory] = useState(params.get("category") ?? "");
@@ -326,15 +329,35 @@ export default function ExplorePage({ params }: ExplorePageProps) {
             aria-busy={loading}
             style={{ opacity: loading ? 0.65 : 1 }}
           >
-            {data.items.map((skill, index) => (
-              <SkillCard
-                key={skill.id}
-                skill={skill}
-                categoryLabel={skill.category ? (categoryNames.get(skill.category) ?? skill.category) : undefined}
-                onOpen={setSelectedId}
-                index={index}
-              />
-            ))}
+            {data.items.map((skill, index) => {
+              const queued = queue.items.some((item) => item.skillId === skill.id);
+              const blocked = queueBlockReason(skill);
+              return (
+                <SkillCard
+                  key={skill.id}
+                  skill={skill}
+                  categoryLabel={skill.category ? (categoryNames.get(skill.category) ?? skill.category) : undefined}
+                  onOpen={setSelectedId}
+                  index={index}
+                  queued={queued}
+                  queueBlockedReason={blocked}
+                  onToggleQueue={() => {
+                    if (queued) {
+                      queue.remove(skill.id);
+                      return;
+                    }
+                    if (blocked || !skill.latestVersion) return;
+                    queue.add({
+                      skillId: skill.id,
+                      name: skill.name,
+                      versionId: skill.latestVersion.id,
+                      versionLabel: skill.latestVersion.versionLabel,
+                      allowRisky: false,
+                    });
+                  }}
+                />
+              );
+            })}
           </div>
           <div className="border-t border-line pt-4">
             <Pagination

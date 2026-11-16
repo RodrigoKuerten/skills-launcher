@@ -7,6 +7,7 @@ import {
   Download,
   ExternalLink as ExternalLinkIcon,
   FolderOpen,
+  ListPlus,
   Scale,
   ShieldAlert,
   ShieldCheck,
@@ -14,6 +15,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { useAppData } from "../app/app-context";
+import { useInstallQueue } from "../app/install-queue";
 import { ExternalLink } from "./ExternalLink";
 import { RiskBadge } from "./RiskBadge";
 import { SafeMarkdown } from "./SafeMarkdown";
@@ -47,6 +49,7 @@ export interface SkillDetailSheetProps {
 
 export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDetailSheetProps) {
   const { bootstrap } = useAppData();
+  const queue = useInstallQueue();
   const toast = useToast();
   const [detail, setDetail] = useState<SkillDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -135,6 +138,7 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
   const risky = detail?.riskLevel === "HIGH" || detail?.riskLevel === "CRITICAL";
   const detected = agents.filter((agent) => agent.detected);
   const installable = detected.filter((agent) => agent.supportsAgentSkills);
+  const queued = detail ? queue.items.some((item) => item.skillId === detail.id) : false;
   const selectedAgentNames = selectedHosts.map((host) => {
     const agent = agents.find((candidate) => candidate.host === host);
     return agent?.name || hostName(host);
@@ -223,6 +227,40 @@ export function SkillDetailSheet({ skillId, onOpenChange, onChanged }: SkillDeta
               Open Library
             </Button>
           ) : null}
+          <Button
+            variant="secondary"
+            onClick={() => {
+              if (!detail || !latest) return;
+              if (queued) {
+                queue.remove(detail.id);
+                return;
+              }
+              queue.add({
+                skillId: detail.id,
+                name: detail.name,
+                versionId: latest.id,
+                versionLabel: latest.versionLabel,
+                allowRisky,
+              });
+              toast.info(
+                "Added to the install queue",
+                "Install it with the rest from the queue in the top bar.",
+              );
+            }}
+            disabled={!detail || !latest || quarantined || (risky && !allowRisky)}
+            title={
+              risky && !allowRisky
+                ? "Enable the high-risk install switch first."
+                : undefined
+            }
+          >
+            {queued ? (
+              <Check className="size-3.5" aria-hidden="true" />
+            ) : (
+              <ListPlus className="size-3.5" aria-hidden="true" />
+            )}
+            {queued ? "In queue" : "Add to queue"}
+          </Button>
           <Button
             variant="primary"
             onClick={() => void install()}

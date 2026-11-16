@@ -1,7 +1,8 @@
-﻿import { Search } from "lucide-react";
+﻿import { ListPlus, Search } from "lucide-react";
 import { formatDate, formatRelative } from "../../lib/format";
 import { ROUTE_META, type Route } from "../../lib/router";
 import { useAppData } from "../../app/app-context";
+import { useInstallQueue } from "../../app/install-queue";
 import { SyncAllButton } from "../SyncAllButton";
 
 export interface TopbarProps {
@@ -11,6 +12,7 @@ export interface TopbarProps {
 
 export function Topbar({ route, onFocusSearch }: TopbarProps) {
   const { bootstrap, refreshing } = useAppData();
+  const { items: queue, setOpen: setQueueOpen } = useInstallQueue();
   const meta = ROUTE_META[route];
   const lastSync = bootstrap?.stats.lastSyncAt;
   const shortcut = /Mac|iPhone|iPad/i.test(navigator.platform) ? "⌘ K" : "Ctrl K";
@@ -58,6 +60,21 @@ export function Topbar({ route, onFocusSearch }: TopbarProps) {
             <kbd className="flex items-center gap-0.5 rounded border border-line bg-elevated/60 px-1 py-0.5 font-mono text-[11px] text-muted-soft">
               {shortcut}
             </kbd>
+          </button>
+        ) : null}
+        {queue.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setQueueOpen(true)}
+            className="flex h-8 items-center gap-1.5 rounded-lg border border-brand/30 bg-brand/10 px-2.5 text-[11px] font-medium text-brand-soft transition-colors hover:border-brand/50 hover:bg-brand/15"
+            title="Open install queue"
+            aria-label={`Open install queue (${queue.length})`}
+          >
+            <ListPlus className="size-3.5" aria-hidden="true" />
+            <span className="hidden sm:inline">Queue</span>
+            <span className="rounded bg-brand/20 px-1 py-0.5 text-[10px] font-semibold tabular-nums">
+              {queue.length}
+            </span>
           </button>
         ) : null}
         <SyncAllButton />

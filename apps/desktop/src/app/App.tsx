@@ -3,8 +3,10 @@ import { TriangleAlert } from "lucide-react";
 import { APP_NAME } from "../lib/constants";
 import { buildHash, navigate, parseLocation, ROUTE_META, type RouteState } from "../lib/router";
 import { AppDataProvider, useAppData } from "./app-context";
+import { InstallQueueProvider } from "./install-queue";
 import { Sidebar } from "../components/layout/Sidebar";
 import { Topbar } from "../components/layout/Topbar";
+import { InstallQueueSheet } from "../components/InstallQueueSheet";
 import { Button } from "../components/ui/Button";
 import { ToastProvider } from "../components/ui/Toast";
 import HomePage from "../pages/HomePage";
@@ -21,7 +23,10 @@ export default function App() {
   return (
     <ToastProvider>
       <AppDataProvider>
-        <AppShell />
+        <InstallQueueProvider>
+          <AppShell />
+          <InstallQueueSheet />
+        </InstallQueueProvider>
       </AppDataProvider>
     </ToastProvider>
   );
