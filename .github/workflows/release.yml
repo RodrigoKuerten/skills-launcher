@@ -104,6 +104,8 @@ jobs:
 
             ### Highlights
 
+            - **Install queue**: stage multiple skills from Explore and install them together on the
+              selected agents, with quarantine and high-risk guards.
             - 23 verified skill sources and 854 catalog skills in a fresh sync.
             - Real detection/install validation for Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI,
               Windsurf/Devin Desktop and OpenCode.
