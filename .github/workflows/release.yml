@@ -104,6 +104,8 @@ jobs:
 
             ### Highlights
 
+            - **Linux agent detection**: OpenCode Desktop and user-level CLI installs are detected
+              automatically, and manual path hints follow the current OS.
             - **Install queue**: stage multiple skills from Explore and install them together on the
               selected agents, with quarantine and high-risk guards.
             - 23 verified skill sources and 854 catalog skills in a fresh sync.
