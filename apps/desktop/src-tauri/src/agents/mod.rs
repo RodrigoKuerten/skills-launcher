@@ -281,10 +281,24 @@ fn join_relative(base: &Path, relative: &str) -> PathBuf {
         .fold(base.to_path_buf(), |path, part| path.join(part))
 }
 
+fn manual_entry_is_redundant(
+    manual: &ManualAgentConfig,
+    auto_detected: bool,
+    default_root: &Path,
+) -> bool {
+    auto_detected
+        && manual.executable_path.is_none()
+        && manual
+            .skills_path
+            .as_deref()
+            .map_or(true, |path| Path::new(path) == default_root)
+}
+
 async fn detect_one(db: &Db, descriptor: &HostDescriptor) -> AppResult<DetectedAgent> {
     let home = home_dir()?;
     let mut notes = Vec::new();
-    let mut executable = find_executable(descriptor);
+    let auto_executable = find_executable(descriptor);
+    let mut executable = auto_executable.clone();
     if descriptor.id == "copilot" && executable.is_none() {
         if let Some(code) = which::which("code").ok().filter(|path| path.is_file()) {
             if has_copilot_extension(&home) {
@@ -323,20 +337,27 @@ async fn detect_one(db: &Db, descriptor: &HostDescriptor) -> AppResult<DetectedA
     }
     let mut skills_root = join_relative(&home, descriptor.user_root);
     let manual = load_manual_agent(db, descriptor.id)?;
-    let manual_mode = manual.is_some();
+    let mut manual_mode = false;
     if let Some(manual) = manual {
-        detected = true;
-        if let Some(path) = &manual.executable_path {
-            executable = Some(PathBuf::from(path));
-        }
-        if let Some(path) = &manual.skills_path {
-            skills_root = PathBuf::from(path);
-            notes.push(format!("Manual skills root: {}", skills_root.display()));
-        }
-        notes.push("Manually added: detection was overridden by the user.".into());
-        if version.is_none() {
-            if let Some(executable) = &executable {
-                version = probe_version(executable).await;
+        if manual_entry_is_redundant(&manual, auto_executable.is_some(), &skills_root) {
+            notes.push(
+                "Automatic runtime evidence found; the manual entry is kept as a fallback.".into(),
+            );
+        } else {
+            manual_mode = true;
+            detected = true;
+            if let Some(path) = &manual.executable_path {
+                executable = Some(PathBuf::from(path));
+            }
+            if let Some(path) = &manual.skills_path {
+                skills_root = PathBuf::from(path);
+                notes.push(format!("Manual skills root: {}", skills_root.display()));
+            }
+            notes.push("Manually added: detection was overridden by the user.".into());
+            if version.is_none() {
+                if let Some(executable) = &executable {
+                    version = probe_version(executable).await;
+                }
             }
         }
     }
@@ -389,12 +410,12 @@ async fn detect_one(db: &Db, descriptor: &HostDescriptor) -> AppResult<DetectedA
 fn find_executable(descriptor: &HostDescriptor) -> Option<PathBuf> {
     for name in descriptor.executables {
         if let Ok(path) = which::which(name) {
-            if path.is_file() {
+            if is_executable_file(&path) {
                 return Some(path);
             }
         }
     }
-    let mut candidates = app_candidates(descriptor.id);
+    let mut candidates = app_candidates(descriptor);
     if descriptor.id == "opencode" {
         candidates.sort_by_key(|path| {
             !path
@@ -402,7 +423,25 @@ fn find_executable(descriptor: &HostDescriptor) -> Option<PathBuf> {
                 .is_some_and(|name| name.to_string_lossy().contains("opencode-cli"))
         });
     }
-    candidates.into_iter().find(|path| path.is_file())
+    candidates.into_iter().find(|path| is_executable_file(path))
+}
+
+fn is_executable_file(path: &Path) -> bool {
+    let Ok(metadata) = path.metadata() else {
+        return false;
+    };
+    if !metadata.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        metadata.permissions().mode() & 0o111 != 0
+    }
+    #[cfg(not(unix))]
+    {
+        true
+    }
 }
 
 fn home_dir() -> AppResult<PathBuf> {
@@ -439,8 +478,32 @@ fn config_candidates(descriptor: &HostDescriptor, home: &Path) -> Vec<PathBuf> {
     }
 }
 
-fn app_candidates(host: &str) -> Vec<PathBuf> {
+#[cfg(any(target_os = "linux", test))]
+fn versioned_binary_candidates(root: &Path, binary: &str) -> Vec<PathBuf> {
+    let Ok(versions) = std::fs::read_dir(root) else {
+        return Vec::new();
+    };
+    let mut paths: Vec<PathBuf> = versions
+        .flatten()
+        .map(|version| version.path().join(binary))
+        .filter(|path| is_executable_file(path))
+        .collect();
+    paths.sort();
+    paths.reverse();
+    paths
+}
+
+fn app_candidates(descriptor: &HostDescriptor) -> Vec<PathBuf> {
     let mut paths = Vec::new();
+    let host = descriptor.id;
+    #[cfg(target_os = "linux")]
+    if let Some(home) = dirs::home_dir() {
+        for directory in [".local/bin", ".npm-global/bin", ".bun/bin"] {
+            for name in descriptor.executables {
+                paths.push(home.join(directory).join(name));
+            }
+        }
+    }
     if let Some(local) = std::env::var_os("LOCALAPPDATA").map(PathBuf::from) {
         match host {
             "cursor" => {
@@ -469,6 +532,20 @@ fn app_candidates(host: &str) -> Vec<PathBuf> {
                     paths.push(version.path().join("opencode-cli.exe"));
                 }
             }
+        }
+        #[cfg(target_os = "linux")]
+        {
+            if let Some(config) = dirs::config_dir() {
+                paths.extend(versioned_binary_candidates(
+                    &config.join("ai.opencode.desktop/cli"),
+                    "opencode-cli",
+                ));
+            }
+            // The Linux desktop package installs the Electron binary here; the
+            // bundled CLI above is preferred because it answers --version.
+            paths.push(PathBuf::from("/opt/OpenCode/ai.opencode"));
+            paths.push(PathBuf::from("/opt/opencode/ai.opencode"));
+            paths.push(PathBuf::from("/usr/lib/opencode/ai.opencode"));
         }
     }
     #[cfg(target_os = "macos")]
@@ -517,6 +594,79 @@ fn has_copilot_extension(home: &Path) -> bool {
 #[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn finds_versioned_opencode_cli_candidates_newest_first() {
+        let root =
+            std::env::temp_dir().join(format!("skills-launcher-cli-{}", uuid::Uuid::new_v4()));
+        for version in ["2.3.0-x64", "2.4.0-x64", "2.5.0-x64"] {
+            std::fs::create_dir_all(root.join(version)).unwrap();
+        }
+        std::fs::write(root.join("2.3.0-x64/opencode-cli"), b"x").unwrap();
+        std::fs::write(root.join("2.4.0-x64/opencode-cli"), b"x").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            for path in [
+                root.join("2.3.0-x64/opencode-cli"),
+                root.join("2.4.0-x64/opencode-cli"),
+            ] {
+                std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+            }
+        }
+
+        let paths = versioned_binary_candidates(&root, "opencode-cli");
+        let versions: Vec<String> = paths
+            .iter()
+            .filter_map(|path| path.parent()?.file_name()?.to_str().map(str::to_owned))
+            .collect();
+        assert_eq!(versions, vec!["2.4.0-x64", "2.3.0-x64"]);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn redundant_manual_entry_becomes_a_fallback() {
+        let default_root = Path::new("/home/u/.config/opencode/skills");
+        let empty = ManualAgentConfig {
+            executable_path: None,
+            skills_path: None,
+        };
+        assert!(manual_entry_is_redundant(&empty, true, default_root));
+        assert!(!manual_entry_is_redundant(&empty, false, default_root));
+        assert!(!manual_entry_is_redundant(
+            &ManualAgentConfig {
+                executable_path: Some("/usr/bin/opencode".into()),
+                skills_path: None,
+            },
+            true,
+            default_root,
+        ));
+        assert!(!manual_entry_is_redundant(
+            &ManualAgentConfig {
+                executable_path: None,
+                skills_path: Some("/custom/skills".into()),
+            },
+            true,
+            default_root,
+        ));
+        assert!(manual_entry_is_redundant(
+            &ManualAgentConfig {
+                executable_path: None,
+                skills_path: Some("/home/u/.config/opencode/skills".into()),
+            },
+            true,
+            default_root,
+        ));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn opencode_candidates_include_linux_desktop_binary() {
+        let descriptor = HOSTS.iter().find(|host| host.id == "opencode").unwrap();
+        assert!(app_candidates(descriptor)
+            .iter()
+            .any(|path| path == Path::new("/opt/OpenCode/ai.opencode")));
+    }
 
     #[tokio::test]
     #[ignore = "reads the real machine to verify detection evidence"]

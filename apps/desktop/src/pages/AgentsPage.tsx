@@ -26,6 +26,7 @@ import { HOSTS, hostName } from "../lib/constants";
 import { cx } from "../lib/cx";
 import { errorMessage, formatNumber } from "../lib/format";
 import { ipc } from "../lib/ipc";
+import { desktopPlatform, executablePlaceholder, platformHome } from "../lib/platform";
 import type { DetectedAgent } from "../lib/types";
 
 const SKILL_FOLDERS = [
@@ -51,6 +52,8 @@ export default function AgentsPage() {
   const [manualExecutable, setManualExecutable] = useState("");
   const [manualSkills, setManualSkills] = useState("");
   const [manualSaving, setManualSaving] = useState(false);
+  const platform = desktopPlatform();
+  const homeInfo = platformHome(platform);
 
   const detect = useCallback(async () => {
     setLoading(true);
@@ -386,20 +389,14 @@ export default function AgentsPage() {
 
           <section>
             <h3 className="text-[12px] font-semibold text-text">What <code className="font-mono">~</code> means</h3>
-            <div className="mt-2 grid gap-2 sm:grid-cols-3">
-              {[
-                ["Windows", "C:\\Users\\<you>", "C:\\Users\\<you>\\.claude\\skills"],
-                ["macOS", "/Users/<you>", "/Users/<you>/.claude/skills"],
-                ["Linux", "/home/<you>", "/home/<you>/.claude/skills"],
-              ].map(([system, home, example]) => (
-                <div key={system} className="rounded-lg border border-line bg-elevated/25 p-3">
-                  <p className="text-[11px] font-medium text-text">{system}</p>
-                  <code className="mt-1 block font-mono text-[10.5px] text-muted">{home}</code>
-                  <p className="mt-2 text-[10.5px] leading-relaxed text-muted-soft">
-                    Example: <code className="break-all font-mono">{example}</code>
-                  </p>
-                </div>
-              ))}
+            <div className="mt-2 grid gap-2">
+              <div className="rounded-lg border border-line bg-elevated/25 p-3">
+                <p className="text-[11px] font-medium text-text">{homeInfo.label}</p>
+                <code className="mt-1 block font-mono text-[10.5px] text-muted">{homeInfo.home}</code>
+                <p className="mt-2 text-[10.5px] leading-relaxed text-muted-soft">
+                  Example: <code className="break-all font-mono">{homeInfo.example}</code>
+                </p>
+              </div>
             </div>
           </section>
 
@@ -469,7 +466,7 @@ export default function AgentsPage() {
               id="manual-executable"
               value={manualExecutable}
               onChange={(event) => setManualExecutable(event.target.value)}
-              placeholder={manualHost === "opencode" ? "C:\\Users\\you\\AppData\\Local\\...\\opencode.exe" : "C:\\path\\to\\agent.exe"}
+              placeholder={executablePlaceholder(manualHost, platform)}
               spellCheck={false}
               autoComplete="off"
             />

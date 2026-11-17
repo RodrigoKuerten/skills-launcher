@@ -21,6 +21,9 @@ The app probes versions with fixed arguments and a 3-second timeout. It never ex
 
 - `detected` requires an executable on `PATH`, a known application binary, the official GitHub Copilot CLI version
   string, or (for Copilot) VS Code plus the GitHub Copilot extension directory.
+- On Linux, the detector also probes `~/.local/bin`, `~/.npm-global/bin`, `~/.bun/bin`, the OpenCode desktop CLI under
+  `~/.config/ai.opencode.desktop/cli/<version>/opencode-cli`, and the packaged OpenCode desktop binary under
+  `/opt/OpenCode/ai.opencode`.
 - An ambiguous/overlapping root is reported in `notes`; Codex installs go to `.agents/skills` when both roots exist.
 - `skillsPath` is the documented root even when the agent is not detected. It is a destination hint, not detection.
 - The UI should show evidence and paths, and never present a config-only directory as “detected”.
@@ -53,6 +56,8 @@ marked `manual: true` in detection results.
   it only uses the skills folder for installs.
 - Removing a manual entry is blocked while that host has `INSTALLED` skills, so an installation cannot be orphaned.
 - A real detection result can be overridden; the UI labels it **Manual entry**.
+- A manual entry with no executable path and the default user skills root is kept as a fallback. When automatic
+  runtime evidence appears, detection takes precedence and the entry is ignored until the runtime disappears again.
 - Linux CI runs `manual_agent_detect_install_uninstall` with a temporary home skills folder: manual detection,
   install, uninstall and override removal.
 
