@@ -23,6 +23,8 @@ struct SkillInfo {
     slug: String,
     name: String,
     latest_version_id: Option<String>,
+    status: String,
+    risk_level: String,
 }
 
 struct VersionPayload {
@@ -42,6 +44,42 @@ struct InstallationRow {
     origin: String,
 }
 
+pub(super) fn lock_installs(data_dir: &Path) -> AppResult<std::fs::File> {
+    use tokio::runtime::{Handle, RuntimeFlavor};
+    let file = open_lock_file(data_dir)?;
+    // The wait is unbounded, so hand this worker's other tasks to another thread meanwhile.
+    match Handle::try_current().map(|handle| handle.runtime_flavor()) {
+        Ok(RuntimeFlavor::MultiThread) => tokio::task::block_in_place(|| file.lock())?,
+        _ => file.lock()?,
+    }
+    Ok(file)
+}
+
+/// `None` when another install holds the lock or it cannot be opened.
+pub(super) fn try_lock_installs(data_dir: &Path) -> Option<std::fs::File> {
+    let file = open_lock_file(data_dir).ok()?;
+    file.try_lock().ok()?;
+    Some(file)
+}
+
+fn open_lock_file(data_dir: &Path) -> AppResult<std::fs::File> {
+    std::fs::create_dir_all(data_dir)?;
+    Ok(std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(data_dir.join("install.lock"))?)
+}
+
+/// The skill row is checked too: a rescan can block a skill without changing its version row.
+fn is_blocked(skill: &SkillInfo, version: &VersionPayload) -> bool {
+    skill.status != "ACTIVE"
+        || version.status == "QUARANTINED"
+        || [&skill.risk_level, &version.risk_level]
+            .iter()
+            .any(|risk| matches!(risk.as_str(), "HIGH" | "CRITICAL"))
+}
+
 pub fn install_skill(
     db: &Db,
     data_dir: &Path,
@@ -53,10 +91,7 @@ pub fn install_skill(
     }
     let skill = load_skill(db, &request.skill_id)?;
     let version = load_version(db, &skill, request.version_id.as_deref())?;
-    if (version.status == "QUARANTINED"
-        || matches!(version.risk_level.as_str(), "HIGH" | "CRITICAL"))
-        && !request.allow_risky
-    {
+    if is_blocked(&skill, &version) && !request.allow_risky {
         return Err(AppError::Security(
             "This version is quarantined. Review the findings and explicitly allow it to continue."
                 .into(),
@@ -134,19 +169,21 @@ pub fn update_installation(
             outcomes: vec![failed(&installation.host, "Agent was not detected")],
         });
     }
-    let expected = match &agent.skills_path {
+    let root = match &agent.skills_path {
         Some(path) => PathBuf::from(path),
         None => user_skills_root(descriptor(&installation.host)?)?,
-    }
-    .join(&skill.slug);
+    };
+    // The stored path is canonical; the configured root may go through a symlink or junction.
+    let expected = crate::paths::canonical(&root)
+        .unwrap_or(root)
+        .join(&skill.slug);
     if Path::new(&installation.install_path) != expected.as_path() {
         return Err(AppError::Validation(
             "The installed path changed. Uninstall it before installing again.".into(),
         ));
     }
     let version = load_version(db, &skill, None)?;
-    if version.status == "QUARANTINED" || matches!(version.risk_level.as_str(), "HIGH" | "CRITICAL")
-    {
+    if is_blocked(&skill, &version) {
         return Err(AppError::Security(
             "The latest version is quarantined and cannot be auto-updated.".into(),
         ));
@@ -165,6 +202,7 @@ pub fn update_installation(
 }
 
 pub fn uninstall_skill(db: &Db, data_dir: &Path, id: &str, remove_files: bool) -> AppResult<()> {
+    let _lock = lock_installs(data_dir)?;
     let installation = load_installation(db, id)?;
     if installation.origin == "imported" {
         return Err(AppError::Validation(
@@ -181,6 +219,7 @@ pub fn uninstall_skill(db: &Db, data_dir: &Path, id: &str, remove_files: bool) -
             "Install path is outside the home directory".into(),
         ));
     }
+    super::recover_swaps_in(&root);
     ensure_target_under(&root, &target)?;
     if remove_files && target.exists() {
         reject_reparse(&target)?;
@@ -585,6 +624,8 @@ fn restore_backup(
     root: &Path,
     target: &Path,
 ) -> AppResult<InstallResponse> {
+    let _lock = lock_installs(data_dir)?;
+    super::recover_swaps_in(root);
     let backup_path = PathBuf::from(&backup.path);
     if !backup_path.is_dir() {
         return Err(AppError::Validation("Backup files are missing".into()));
@@ -708,7 +749,12 @@ pub async fn auto_update(db: &Db, data_dir: &Path) -> AppResult<Vec<InstallOutco
         else {
             continue;
         };
-        let skill = load_skill(db, &installation.skill_id)?;
+        // Archived skills and removed sources have nothing to update to.
+        let skill = match load_skill(db, &installation.skill_id) {
+            Ok(skill) => skill,
+            Err(AppError::NotFound(_)) => continue,
+            Err(error) => return Err(error),
+        };
         let Some(latest) = skill.latest_version_id.as_ref() else {
             continue;
         };
@@ -725,10 +771,15 @@ pub async fn auto_update(db: &Db, data_dir: &Path) -> AppResult<Vec<InstallOutco
         if current.as_deref() == Some(latest) {
             continue;
         }
-        let version = load_version(db, &skill, Some(latest))?;
-        if version.status == "QUARANTINED"
-            || matches!(version.risk_level.as_str(), "HIGH" | "CRITICAL")
-        {
+        let version = match load_version(db, &skill, Some(latest)) {
+            Ok(version) => version,
+            Err(error) => {
+                let message = format!("{}: {error}", skill.name);
+                outcomes.push(failed(&installation.host, &message));
+                continue;
+            }
+        };
+        if is_blocked(&skill, &version) {
             continue;
         }
         outcomes.push(install_one(
@@ -789,12 +840,22 @@ fn install_to_root(
             "Skill slug is not a safe directory name".into(),
         ));
     }
+    let _lock = lock_installs(data_dir)?;
+    // A process killed mid-swap leaves the user's files aside; restore them before `exists()`.
+    super::recover_swaps_in(root);
     let target = root.join(&skill.slug);
     ensure_target_under(root, &target)?;
     reject_reparse(&target)?;
     let target_exists = target.exists();
-    let (installation_id, managed, previous_version_id, previous_label) =
-        ensure_installation(db, skill, version, &agent.host, &target, target_exists)?;
+    let (installation_id, managed, previous_version_id, previous_label) = ensure_installation(
+        db,
+        skill,
+        version,
+        &agent.host,
+        &target,
+        target_exists,
+        reason != "pre_update",
+    )?;
     let mut failure_guard = FailedInstallGuard {
         db,
         installation_id: &installation_id,
@@ -904,7 +965,7 @@ fn managed_files_for_version(
 fn load_skill(db: &Db, id: &str) -> AppResult<SkillInfo> {
     db.with_conn(|conn| {
         conn.query_row(
-            "SELECT s.id,s.slug,s.name,s.latest_version_id FROM skills s JOIN sources src ON src.id=s.source_id WHERE s.id=?1 AND src.deleted_at IS NULL AND s.status <> 'ARCHIVED'",
+            "SELECT s.id,s.slug,s.name,s.latest_version_id,s.status,s.risk_level FROM skills s JOIN sources src ON src.id=s.source_id WHERE s.id=?1 AND src.deleted_at IS NULL AND s.status <> 'ARCHIVED'",
             params![id],
             |row| {
                 Ok(SkillInfo {
@@ -912,6 +973,8 @@ fn load_skill(db: &Db, id: &str) -> AppResult<SkillInfo> {
                     slug: row.get(1)?,
                     name: row.get(2)?,
                     latest_version_id: row.get(3)?,
+                    status: row.get(4)?,
+                    risk_level: row.get(5)?,
                 })
             },
         )
@@ -966,26 +1029,46 @@ fn ensure_installation(
     host: &str,
     target: &Path,
     target_exists: bool,
+    may_reinstall: bool,
 ) -> AppResult<(String, bool, Option<String>, Option<String>)> {
     let path = target.to_string_lossy().to_string();
-    let existing: Option<(String, Option<String>, Option<String>)> = db.with_conn(|conn| {
-        Ok(conn
-            .query_row(
-                "SELECT i.id,i.version_id,v.version_label FROM installations i LEFT JOIN skill_versions v ON v.id=i.version_id WHERE i.host=?1 AND i.skill_id=?2 AND i.install_path=?3 AND i.status <> 'REMOVED'",
-                params![host, skill.id, path],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-            )
-            .optional()?)
-    })?;
-    if let Some((id, version_id, version_label)) = existing {
+    let existing: Option<(String, Option<String>, Option<String>, String)> =
         db.with_conn(|conn| {
-            conn.execute(
-                "UPDATE installations SET status='INSTALLING',updated_at=?1 WHERE id=?2",
-                params![now_iso(), id],
-            )?;
-            Ok(())
+            Ok(conn
+                .query_row(
+                    "SELECT i.id,i.version_id,v.version_label,i.status FROM installations i LEFT JOIN skill_versions v ON v.id=i.version_id WHERE i.host=?1 AND i.skill_id=?2 AND i.install_path=?3",
+                    params![host, skill.id, path],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                )
+                .optional()?)
         })?;
-        return Ok((id, true, version_id, version_label));
+    if let Some((id, version_id, version_label, status)) = existing {
+        if status != "REMOVED" {
+            db.with_conn(|conn| {
+                conn.execute(
+                    "UPDATE installations SET status='INSTALLING',updated_at=?1 WHERE id=?2",
+                    params![now_iso(), id],
+                )?;
+                Ok(())
+            })?;
+            return Ok((id, true, version_id, version_label));
+        }
+        if !may_reinstall {
+            return Err(AppError::Validation(
+                "This skill was uninstalled. Install it again instead of updating.".into(),
+            ));
+        }
+        if !target_exists {
+            // The path is unique per skill and host, so the removed row is reused.
+            db.with_conn(|conn| {
+                conn.execute(
+                    "UPDATE installations SET version_id=NULL,content_hash=?1,status='INSTALLING',origin='app',installed_at=?2,updated_at=?2 WHERE id=?3",
+                    params![version.content_hash, now_iso(), id],
+                )?;
+                Ok(())
+            })?;
+            return Ok((id, true, None, None));
+        }
     }
     if target_exists {
         return Ok((String::new(), false, None, None));
@@ -1449,6 +1532,17 @@ mod tests {
         root
     }
 
+    #[tokio::test(flavor = "multi_thread")]
+    async fn install_lock_is_exclusive() {
+        let data =
+            std::env::temp_dir().join(format!("skills-launcher-lock-{}", uuid::Uuid::new_v4()));
+        let held = lock_installs(&data).unwrap();
+        assert!(try_lock_installs(&data).is_none());
+        drop(held);
+        assert!(try_lock_installs(&data).is_some());
+        let _ = std::fs::remove_dir_all(data);
+    }
+
     #[tokio::test]
     async fn install_update_preserves_user_extras_and_backs_up() {
         let root = fixture_root();
@@ -1535,6 +1629,19 @@ mod tests {
         .unwrap();
         let skill = load_skill(&db, &skill.id).unwrap();
         let version = load_version(&db, &skill, None).unwrap();
+        assert_eq!(crate::catalog::list_updates(&db).unwrap().len(), 1);
+        let set_removed = |at: Option<&str>| {
+            db.with_conn(|conn| {
+                conn.execute("UPDATE sources SET deleted_at=?1", params![at])?;
+                Ok(())
+            })
+            .unwrap();
+        };
+        set_removed(Some("2026-01-01T00:00:00Z"));
+        assert!(crate::catalog::list_updates(&db).unwrap().is_empty());
+        assert_eq!(db.stats().unwrap().updates, 0);
+        set_removed(None);
+        assert_eq!(db.stats().unwrap().updates, 1);
         install_to_root(
             &db,
             &root.join("data"),
@@ -1575,6 +1682,46 @@ mod tests {
         let restored = std::fs::read_to_string(Path::new(&installed).join("SKILL.md")).unwrap();
         assert!(restored.contains("First version"));
         assert!(Path::new(&installed).join("user-note.txt").is_file());
+
+        // Killed between the two renames of `swap`: the next install keeps the user's files.
+        std::fs::rename(
+            &installed,
+            agent_root.join(".demo-skill.skills-launcher-old-x"),
+        )
+        .unwrap();
+        let install = |reason: &str| {
+            let data = root.join("data");
+            install_to_root(&db, &data, &skill, &version, &agent, reason, &agent_root)
+        };
+        install("pre_install").unwrap();
+        assert!(Path::new(&installed).join("user-note.txt").is_file());
+
+        // What `uninstall_skill` leaves behind (it only accepts roots inside the home directory).
+        std::fs::remove_dir_all(&installed).unwrap();
+        db.with_conn(|conn| {
+            conn.execute("UPDATE installations SET status='REMOVED'", [])?;
+            Ok(())
+        })
+        .unwrap();
+        assert!(install("pre_update").is_err());
+        install("pre_install").unwrap();
+        let reinstalled = load_installation(&db, &installation_id).unwrap();
+        assert_eq!(reinstalled.install_path, installed);
+        assert!(Path::new(&installed).join("SKILL.md").is_file());
+
+        // A skill blocked after the scan is refused even though its version row is clean.
+        db.with_conn(|conn| {
+            conn.execute("UPDATE skills SET status='QUARANTINED'", [])?;
+            Ok(())
+        })
+        .unwrap();
+        let request = InstallRequest {
+            skill_id: skill.id.clone(),
+            version_id: None,
+            hosts: vec!["claude-code".into()],
+            allow_risky: false,
+        };
+        assert!(install_skill(&db, &root.join("data"), &request, &[]).is_err());
         let _ = std::fs::remove_dir_all(root);
     }
 

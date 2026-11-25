@@ -264,11 +264,21 @@ fn column_exists(conn: &Connection, table: &str, column: &str) -> AppResult<bool
 
 impl Db {
     pub fn open(data_dir: &Path) -> AppResult<Self> {
+        let db = Self::connect(data_dir)?;
+        db.repair_legacy_rows()?;
+        db.seed()?;
+        db.recover_interrupted()?;
+        Ok(db)
+    }
+
+    pub fn connect(data_dir: &Path) -> AppResult<Self> {
         std::fs::create_dir_all(data_dir)?;
         let conn = Connection::open(data_dir.join("skills-manager.db"))?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "foreign_keys", "ON")?;
-        conn.pragma_update(None, "busy_timeout", 5000)?;
+        // The UI and `--mcp` processes share this file, and a source sync is one long write.
+        // shortcut: a sync holding the lock past 30 s still fails writers; batch it if that happens.
+        conn.pragma_update(None, "busy_timeout", 30_000)?;
         conn.execute_batch(SCHEMA)?;
         if !column_exists(&conn, "sources", "deleted_at")? {
             conn.execute("ALTER TABLE sources ADD COLUMN deleted_at TEXT", [])?;
@@ -288,36 +298,52 @@ impl Db {
                 [],
             )?;
         }
-        conn.execute(
-            "UPDATE installations SET status='FAILED' WHERE status='INSTALLING'",
-            [],
-        )?;
-        let recovered_at = now_iso();
-        conn.execute(
-            "UPDATE source_runs SET status='error',error=COALESCE(error,'Interrupted by app restart'),finished_at=?1 WHERE status='running'",
-            params![recovered_at],
-        )?;
-        conn.execute(
-            "UPDATE sources SET last_status='error',last_error=COALESCE(last_error,'Interrupted by app restart') WHERE last_status='running'",
-            [],
-        )?;
-        conn.execute(
-            "UPDATE skill_versions SET version_label=substr(content_hash,1,8) WHERE version_label IN ('main','master','')",
-            [],
-        )?;
-        conn.execute(
-            "UPDATE installations SET install_path=substr(install_path,5) WHERE install_path LIKE ?1 AND substr(install_path,6,1)=':'",
-            params![r"\\?\%"],
-        )?;
-        conn.execute(
-            "UPDATE sources SET url=substr(url,5) WHERE kind IN ('local_dir','zip') AND url LIKE ?1 AND substr(url,6,1)=':'",
-            params![r"\\?\%"],
-        )?;
+        // Only a new database is written here, so connecting never waits on a running sync.
+        let seeded: bool =
+            conn.query_row("SELECT EXISTS(SELECT 1 FROM sources)", [], |row| row.get(0))?;
         let db = Self {
             conn: Mutex::new(conn),
         };
-        db.seed()?;
+        if !seeded {
+            db.seed()?;
+        }
         Ok(db)
+    }
+
+    fn repair_legacy_rows(&self) -> AppResult<()> {
+        self.with_conn(|conn| {
+            conn.execute(
+                "UPDATE skill_versions SET version_label=substr(content_hash,1,8) WHERE version_label IN ('main','master','')",
+                [],
+            )?;
+            conn.execute(
+                "UPDATE installations SET install_path=substr(install_path,5) WHERE install_path LIKE ?1 AND substr(install_path,6,1)=':'",
+                params![r"\\?\%"],
+            )?;
+            conn.execute(
+                "UPDATE sources SET url=substr(url,5) WHERE kind IN ('local_dir','zip') AND url LIKE ?1 AND substr(url,6,1)=':'",
+                params![r"\\?\%"],
+            )?;
+            Ok(())
+        })
+    }
+
+    fn recover_interrupted(&self) -> AppResult<()> {
+        self.with_conn(|conn| {
+            conn.execute(
+                "UPDATE installations SET status='FAILED' WHERE status='INSTALLING'",
+                [],
+            )?;
+            conn.execute(
+                "UPDATE source_runs SET status='error',error=COALESCE(error,'Interrupted by app restart'),finished_at=?1 WHERE status='running'",
+                params![now_iso()],
+            )?;
+            conn.execute(
+                "UPDATE sources SET last_status='error',last_error=COALESCE(last_error,'Interrupted by app restart') WHERE last_status='running'",
+                [],
+            )?;
+            Ok(())
+        })
     }
 
     pub fn with_conn<T>(&self, f: impl FnOnce(&Connection) -> AppResult<T>) -> AppResult<T> {
@@ -551,6 +577,9 @@ impl Db {
     }
 
     pub fn stats(&self) -> AppResult<Stats> {
+        // Counted from the list itself so badges never disagree with the Updates page.
+        // Outside `with_conn`: the connection lock is not reentrant.
+        let updates = crate::catalog::list_updates(self)?.len() as i64;
         self.with_conn(|conn| {
             let sources = conn.query_row("SELECT COUNT(*) FROM sources WHERE deleted_at IS NULL", [], |row| row.get(0))?;
             let enabled_sources = conn.query_row("SELECT COUNT(*) FROM sources WHERE enabled=1 AND deleted_at IS NULL", [], |row| row.get(0))?;
@@ -571,11 +600,6 @@ impl Db {
             )?;
             let installed = conn.query_row(
                 "SELECT COUNT(*) FROM installations WHERE status='INSTALLED'",
-                [],
-                |row| row.get(0),
-            )?;
-            let updates = conn.query_row(
-                "SELECT COUNT(*) FROM installations i JOIN skills s ON s.id=i.skill_id JOIN skill_versions lv ON lv.id=s.latest_version_id WHERE i.status='INSTALLED' AND s.latest_version_id IS NOT NULL AND (i.version_id IS NULL OR i.version_id <> s.latest_version_id) AND lv.status='PUBLISHED' AND lv.risk_level NOT IN ('HIGH','CRITICAL')",
                 [],
                 |row| row.get(0),
             )?;
@@ -643,6 +667,20 @@ impl Db {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn connect_does_not_wait_for_a_writer() {
+        let data =
+            std::env::temp_dir().join(format!("skills-launcher-busy-{}", uuid::Uuid::new_v4()));
+        drop(Db::open(&data).unwrap());
+        let writer = Connection::open(data.join("skills-manager.db")).unwrap();
+        writer.execute_batch("BEGIN IMMEDIATE").unwrap();
+        let started = std::time::Instant::now();
+        Db::connect(&data).unwrap();
+        assert!(started.elapsed().as_secs() < 5);
+        drop(writer);
+        let _ = std::fs::remove_dir_all(data);
+    }
 
     #[test]
     fn recommended_sources_seed_once() {

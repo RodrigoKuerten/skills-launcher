@@ -63,6 +63,7 @@ export default function LibraryPage() {
   const { bootstrap, revision, refresh } = useAppData();
   const toast = useToast();
   const [installations, setInstallations] = useState<Installation[] | null>(null);
+  const [updateIds, setUpdateIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,8 +107,9 @@ export default function LibraryPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await ipc.listInstallations();
+      const [result, updates] = await Promise.all([ipc.listInstallations(), ipc.listUpdates()]);
       setInstallations(result);
+      setUpdateIds(new Set(updates.map((update) => update.installation.id)));
     } catch (reason) {
       setInstallations(null);
       setError(errorMessage(reason, "Could not read installations."));
@@ -344,8 +346,11 @@ export default function LibraryPage() {
         <div className="overflow-hidden rounded-[14px] border border-line bg-surface/45">
           {filtered.map((installation) => {
             const busyHere = busy?.id === installation.id;
+            // The backend decides eligibility; other statuses keep the button to retry.
             const updateAvailable =
-              installation.origin !== "imported" && hasUpdate(installation);
+              installation.status === "INSTALLED"
+                ? updateIds.has(installation.id)
+                : installation.origin !== "imported" && hasUpdate(installation);
             return (
               <div
                 key={installation.id}
