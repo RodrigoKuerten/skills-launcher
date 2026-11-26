@@ -94,7 +94,3 @@ All require an admin session and same-origin mutations. Every mutation writes `A
 ```
 
 `400` validation, `401` missing auth, `403` cross-origin/role, `404` not found or quarantined, `409` license/state conflict, `429` rate limit, `500` sanitized internal error.
-
-## Rate limits
-
-Fixed-window, in-memory, per IP (MVP): catalog/detail 120/min, manifest 60/min, download 30/min, login 10/5 min, register 5/10 min, reviews 10/hour/user. Swap the limiter for Redis before horizontal scaling.
