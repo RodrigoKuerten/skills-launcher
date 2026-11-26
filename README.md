@@ -24,6 +24,7 @@ Downloads, Settings, themes, security, and troubleshooting.
 | [User Guide](docs/USER_GUIDE.md) | Step-by-step usage with screenshots of every feature |
 | [Sources](docs/SOURCES.md) | Adapters, seeded catalogs, limits, and scanner rules |
 | [Agents](docs/AGENTS.md) | Detection evidence, host paths, install/backup/rollback |
+| [MCP server](docs/MCP.md) | Let agents search and install skills with `--mcp` |
 | [Security](docs/SECURITY.md) | Trust boundaries, path protections, and residual risks |
 | [Releases](docs/RELEASES.md) | Release assets, checksums, and publishing workflow |
 | [CI](docs/CI.md) | Ubuntu 24.04/26.04, macOS, Windows, and seven-agent evidence |

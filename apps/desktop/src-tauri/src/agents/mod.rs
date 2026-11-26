@@ -91,39 +91,49 @@ const HOSTS: &[HostDescriptor] = &[
     },
 ];
 
-pub fn recover_stale_swaps() {
+pub fn recover_stale_swaps(data_dir: &Path) {
+    // Never wait on the UI thread: a held lock means an install is running, and every
+    // install recovers its own root.
+    let Some(_lock) = install::try_lock_installs(data_dir) else {
+        return;
+    };
     let Ok(home) = home_dir() else {
         return;
     };
     for descriptor in HOSTS {
-        let root = join_relative(&home, descriptor.user_root);
-        let Ok(entries) = std::fs::read_dir(&root) else {
+        recover_swaps_in(&join_relative(&home, descriptor.user_root));
+    }
+}
+
+/// Removes staging folders and restores targets left aside by an interrupted swap.
+/// The caller must hold the install lock.
+fn recover_swaps_in(root: &Path) {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if !name.starts_with('.') {
+            continue;
+        }
+        if name.contains(".skills-launcher-tmp-") {
+            let _ = std::fs::remove_dir_all(entry.path());
+            continue;
+        }
+        let Some((target_name, _)) = name
+            .trim_start_matches('.')
+            .split_once(".skills-launcher-old-")
+        else {
             continue;
         };
-        for entry in entries.flatten() {
-            let name = entry.file_name().to_string_lossy().to_string();
-            if !name.starts_with('.') {
-                continue;
-            }
-            if name.contains(".skills-launcher-tmp-") {
-                let _ = std::fs::remove_dir_all(entry.path());
-                continue;
-            }
-            let Some((target_name, _)) = name
-                .trim_start_matches('.')
-                .split_once(".skills-launcher-old-")
-            else {
-                continue;
-            };
-            if target_name.is_empty() {
-                continue;
-            }
-            let target = root.join(target_name);
-            if target.exists() {
-                let _ = std::fs::remove_dir_all(entry.path());
-            } else {
-                let _ = std::fs::rename(entry.path(), target);
-            }
+        if target_name.is_empty() {
+            continue;
+        }
+        let target = root.join(target_name);
+        if target.exists() {
+            let _ = std::fs::remove_dir_all(entry.path());
+        } else {
+            let _ = std::fs::rename(entry.path(), target);
         }
     }
 }

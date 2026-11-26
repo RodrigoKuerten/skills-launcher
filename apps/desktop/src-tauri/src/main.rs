@@ -6,6 +6,7 @@ mod commands;
 mod db;
 mod domain;
 mod error;
+mod mcp;
 mod paths;
 mod security;
 mod sources;
@@ -17,6 +18,13 @@ use std::time::Duration;
 use tauri::{Emitter, Manager};
 
 fn main() {
+    if std::env::args().any(|arg| arg == "--mcp") {
+        if let Err(error) = mcp::run() {
+            eprintln!("Skills Launcher MCP server failed: {error}");
+            std::process::exit(1);
+        }
+        return;
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
@@ -32,7 +40,7 @@ fn main() {
                 .map_err(|error| error.to_string())?;
             let db = Db::open(&data_dir).map_err(|error| error.to_string())?;
             let _ = catalog::archive_duplicate_skills(&db);
-            agents::recover_stale_swaps();
+            agents::recover_stale_swaps(&data_dir);
             let state = AppState::new(db, &data_dir).map_err(|error| error.to_string())?;
             app.manage(state);
             let handle = app.handle().clone();

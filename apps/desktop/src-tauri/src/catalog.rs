@@ -769,13 +769,26 @@ fn map_installation(row: &rusqlite::Row<'_>) -> rusqlite::Result<Installation> {
     })
 }
 
+/// `get_skill` still returns these so the UI can describe what is installed.
+pub fn source_removed(db: &Db, skill_id: &str) -> AppResult<bool> {
+    db.with_conn(|conn| {
+        Ok(conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM skills s JOIN sources src ON src.id=s.source_id WHERE s.id=?1 AND src.deleted_at IS NOT NULL)",
+            params![skill_id],
+            |row| row.get(0),
+        )?)
+    })
+}
+
 pub fn list_updates(db: &Db) -> AppResult<Vec<UpdateItem>> {
     let installations = list_installations(db)?;
     let mut updates = Vec::new();
     for installation in installations {
         if installation.status != "INSTALLED"
+            || installation.origin == "imported"
             || installation.latest_version_id.is_none()
             || installation.version_id.as_deref() == installation.latest_version_id.as_deref()
+            || source_removed(db, &installation.skill_id)?
         {
             continue;
         }
@@ -785,7 +798,11 @@ pub fn list_updates(db: &Db) -> AppResult<Vec<UpdateItem>> {
         let Some(latest) = detail.skill.latest_version else {
             continue;
         };
-        if latest.status != "PUBLISHED" || matches!(latest.risk_level.as_str(), "HIGH" | "CRITICAL")
+        if detail.skill.status != "ACTIVE"
+            || latest.status != "PUBLISHED"
+            || [&detail.skill.risk_level, &latest.risk_level]
+                .iter()
+                .any(|risk| matches!(risk.as_str(), "HIGH" | "CRITICAL"))
         {
             continue;
         }
